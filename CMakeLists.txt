@@ -1,9 +1,12 @@
 cmake_minimum_required(VERSION 2.8.11)
 project(MeshRenderer)
 
+# Global variables
 set(3RDPARTY_DIR 3rdParty)
 
+# Add projects
 add_subdirectory(3rdParty)
+add_subdirectory(Utils)
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8) 
     set(ARCH_64 TRUE) 
@@ -39,11 +42,19 @@ add_executable(MeshRenderer
               Console.h
               Console.cpp)
 
-target_link_libraries(MeshRenderer d3d9 d3dx9 freetype)
+target_link_libraries(MeshRenderer d3d9 d3dx9 freetype Utils)
 
 # Organize projects in folders
 set_property (GLOBAL PROPERTY USE_FOLDERS ON)
-set_property (TARGET MeshRenderer PROPERTY FOLDER "Executables")
+set_property (TARGET MeshRenderer	PROPERTY FOLDER "Executables")
+set_property (TARGET Utils			PROPERTY FODLER "Libraries")
+set_property (TARGET freetype		PROPERTY FOLDER "3rdParty/freetype")
+set_property (TARGET dist			PROPERTY FOLDER "3rdParty/freetype")
 
-# Set output directory name
-set_target_properties(MeshRenderer PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/Binaries ) 
+# Set output folder
+set_target_properties(MeshRenderer	PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/Binaries)
+set_target_properties(freetype		PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/Binaries)
+set_target_properties(Utils			PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/Binaries)
+
+# Post-build steps
+file(COPY Media DESTINATION ${CMAKE_BINARY_DIR}/Binaries)

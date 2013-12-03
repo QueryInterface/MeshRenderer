@@ -19,7 +19,7 @@ public:
 	virtual void ProcessMouse();
 
 private:
-	Rect m_consoleRect;
-	float m_height;
-	bool m_isShown;
+	D3DXVECTOR2		m_position;
+	D3DXVECTOR2		m_size;
+	bool			m_isShown;
 };

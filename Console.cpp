@@ -4,34 +4,30 @@
 Console::Console(RenderContext* renderContext) 
 	: Sprite(renderContext) 
 	, m_isShown(false) 
-	, m_height(0.4f) {
+	, m_position(0.0f, -0.4f)
+	, m_size(1.0f, 0.4f) {
 	renderContext->EventSubscribe_KeyPress(this);
 
-	m_consoleRect.Left = 0.0f;
-	m_consoleRect.Right = 1.0f;
-	m_consoleRect.Top = -m_height;
-	m_consoleRect.Bottom = 0.0f;
-	SetCoords(m_consoleRect);
+	SetSize(m_size.x, m_size.y);
+	SetPosition(m_position.x, m_position.y);
 }
 
 Console::~Console() {
 }
 
 void Console::SetConsoleHeight(float percent) {
-	m_height = percent;
-	m_consoleRect.Bottom = m_consoleRect.Top + m_height;
+	m_size.y = percent;
+	SetSize(m_size.x, m_size.y);
 }
 
 void Console::Render() {
-	if (m_isShown && m_consoleRect.Bottom < m_height) {
-		m_consoleRect.Bottom += 0.05f;
-		m_consoleRect.Top += 0.05f;
-		SetCoords(m_consoleRect);
+	if (m_isShown && m_position.y < 0.0f) {
+		m_position.y += 0.05f;
+		SetPosition(m_position.x, m_position.y);
 	}
-	if (!m_isShown && m_consoleRect.Bottom > 0) {
-		m_consoleRect.Bottom -= 0.05f;
-		m_consoleRect.Top -= 0.05f;
-		SetCoords(m_consoleRect);
+	if (!m_isShown && m_position.y + m_size.y > 0.0f) {
+		m_position.y-= 0.05f;
+		SetPosition(m_position.x, m_position.y);
 	}
 	Sprite::Render();
 }

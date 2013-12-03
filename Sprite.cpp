@@ -47,15 +47,24 @@ Sprite::Sprite(RenderContext* renderContext)
 	memset(&m_vertices, 0, sizeof(m_vertices)); 
 	m_vertices[0].Z = m_vertices[1].Z = m_vertices[2].Z = m_vertices[3].Z = 0.5;
 	m_vertices[0].W = m_vertices[1].W = m_vertices[2].W = m_vertices[3].W= 1.0;
-	m_vertices[0].X = m_vertices[0].U = -1.0f;
-	m_vertices[0].Y = m_vertices[0].V = -1.0f;
-	m_vertices[1].X = m_vertices[1].U = -1.0f;
-	m_vertices[1].Y = m_vertices[1].V = 1.0f;
-	m_vertices[2].X = m_vertices[2].U = 1.0f;
-	m_vertices[2].Y = m_vertices[2].V = -1.0f;
-	m_vertices[3].X = m_vertices[3].U = 1.0f;
-	m_vertices[3].Y = m_vertices[3].V = 1.0f;
-    // Create vertex declaration
+	m_vertices[0].U = 0.0f;
+	m_vertices[0].V = 0.0f;
+	m_vertices[1].U = 0.0f;
+	m_vertices[1].V = 1.0f;
+	m_vertices[2].U = 1.0f;
+	m_vertices[2].V = 0.0f;
+	m_vertices[3].U = 1.0f;
+	m_vertices[3].V = 1.0f;
+    
+	m_vertices[0].X = 0.0f;
+	m_vertices[0].Y = 0.0f;
+	m_vertices[1].X = 1.0f;
+	m_vertices[1].Y = 0.0f;
+	m_vertices[2].X = 0.0f;
+	m_vertices[2].Y = -1.0f;
+	m_vertices[3].X = 1.0f;
+	m_vertices[3].Y = -1.0f;
+	// Create vertex declaration
 	D3DVERTEXELEMENT9 elements[] = {
 		{0, 0,  D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0},
 		{0, 16, D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD,  0},
@@ -75,9 +84,9 @@ Sprite::Sprite(RenderContext* renderContext)
     shaderBinary = compileShader(g_pixelShaderSource, "ps_main", "ps_2_0", &m_psConstantTable);
     CHECK(m_renderContext->Device->CreatePixelShader((DWORD*)shaderBinary->GetBufferPointer(), &m_pixelShader), "Failed to create pixel shader");
     // Set transformation matrix to identity
-    D3DXMATRIXA16 identity;
-    D3DXMatrixIdentity(&identity);
-    m_vsConstantTable->SetMatrix(m_renderContext->Device, "g_matrix", &identity);
+	D3DXMatrixIdentity(&m_scaleMatrix);
+	D3DXMatrixIdentity(&m_translateMatrix);
+    D3DXMatrixIdentity(&m_resultMatrix);
 }
 
 Sprite::~Sprite() {
@@ -92,37 +101,23 @@ void Sprite::SetTexture(CComPtr<IDirect3DTexture9> texture) {
 	m_texture = texture;
 }
 
-void Sprite::SetCoords(Rect coords) {
-	if (coords.Left > coords.Right || coords.Top > coords.Bottom) {
-		throw std::runtime_error("Invalid rect values");
+void Sprite::SetPosition(float x, float y) {
+	float x_shift = -1.0f + 2.0 * x;
+    float y_shift = 1.0f - 2.0 * y;
+	D3DXMatrixTranslation(&m_translateMatrix, x_shift, y_shift, 0.0f);
+	D3DXMatrixMultiply(&m_resultMatrix, &m_scaleMatrix, &m_translateMatrix);
+	CHECK(m_vsConstantTable->SetMatrix(m_renderContext->Device, "g_matrix", &m_resultMatrix), "Failed to set g_matrix variable in VS shader");
+}
+
+void Sprite::SetSize(float width, float height) {
+	if (width < 0.0f || height  < 0.0f) {
+		throw std::runtime_error("Invalid size values");
 	}
-    float width = (coords.Right - coords.Left);
-    float height = (coords.Bottom - coords.Top);
-	float x_shift = 2 * coords.Left -  (1.0f - width);
-    float y_shift = - 2 * coords.Top + (1.0f - height);
-
-    //const D3DXMATRIX scaleMatrix(
-    //    width,  0.0f,   0.0f,   0.0f,
-    //    0.0f,   height, 0.0f,   0.0f,
-    //    0.0f,   0.0f,   1.0f,   0.0f,
-    //    0.0f,   0.0f,   0.0f,   1.0f
-    //);
-    //
-    //const D3DXMATRIX translateMatrix(
-    //    1.0f,   0.0f,   0.0f,   0.0f,
-    //    0.0f,   1.0f,   0.0f,   0.0f,
-    //    0.0f,   0.0f,   1.0f,   0.0f,
-    //    x_shift,y_shift,0.0f,   1.0f
-    //);
-
-    D3DXMATRIX scaleMatrix;
-    D3DXMATRIX translateMatrix;
-    D3DXMatrixScaling(&scaleMatrix, width, height, 1.0f);
-    D3DXMatrixTranslation(&translateMatrix, x_shift, y_shift, 0.0f);
-    D3DXMATRIXA16 resultMatrix;
-    D3DXMatrixMultiply(&resultMatrix, &scaleMatrix, &translateMatrix);
-    CHECK(m_renderContext->Device->SetTransform(D3DTS_WORLD, &resultMatrix), "SetTransform failed");
-    CHECK(m_vsConstantTable->SetMatrix(m_renderContext->Device, "g_matrix", &resultMatrix), "Faile to set g_matrix variable in VS shader");
+	float w = 2.0f * width;
+	float h = 2.0f * height;
+	D3DXMatrixScaling(&m_scaleMatrix, w, h, 1.0f);
+	D3DXMatrixMultiply(&m_resultMatrix, &m_scaleMatrix, &m_translateMatrix);
+	CHECK(m_vsConstantTable->SetMatrix(m_renderContext->Device, "g_matrix", &m_resultMatrix), "Failed to set g_matrix variable in VS shader");
 }
 
 void Sprite::SetTextureCoords(Rect coords) {
@@ -144,7 +139,7 @@ void Sprite::SetTextureCoords(Rect coords) {
 void Sprite::Render() {
 	if (!m_visible) return;
 	CComPtr<IDirect3DDevice9> device = m_renderContext->Device;
-
+	m_vsConstantTable->SetMatrix(m_renderContext->Device, "g_matrix", &m_resultMatrix);
     device->SetVertexShader(m_vertexShader);
     device->SetPixelShader(m_pixelShader);
 	device->SetTexture(0, m_texture);

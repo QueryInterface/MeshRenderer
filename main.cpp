@@ -1,5 +1,6 @@
 #include "RenderContext.h"
 #include "Sprite.h"
+#include "Font.h"
 #include "Console.h"
 
 int main() {
@@ -8,11 +9,14 @@ int main() {
 	    setup.Width = 640;
 	    setup.Height = 480;
 	    RenderContext renderContext(setup);
-		Console sprite(&renderContext);
+		Font font(&renderContext);
+		Sprite sprite(&renderContext);
+		Console console(&renderContext);
 	    while (renderContext.ProcessMessage()) {
 			renderContext.Clear();
             renderContext.Device->BeginScene();
             sprite.Render();
+			console.Render();
             renderContext.Device->EndScene();
 			renderContext.Present();
 	    }
