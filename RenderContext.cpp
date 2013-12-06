@@ -81,13 +81,12 @@ void RenderContext::initD3D() {
     ZeroMemory(&d3dpp, sizeof(d3dpp));
     d3dpp.Windowed = TRUE;
     d3dpp.SwapEffect = D3DSWAPEFFECT_DISCARD;
-    d3dpp.BackBufferFormat = D3DFMT_UNKNOWN;
+    d3dpp.BackBufferFormat = D3DFMT_A8R8G8B8;
 
     CHECK(D3D->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, Window, D3DCREATE_SOFTWARE_VERTEXPROCESSING, 
                             &d3dpp, &Device), "Failed to create device");
-
-    Device->SetRenderState( D3DRS_LIGHTING, FALSE );
-    Device->SetRenderState( D3DRS_ZENABLE, TRUE );
+	CHECK(Device->GetRenderTarget(0, &DefaultRT), "Failed to save default RT");
+	Device->SetRenderState(D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_ALPHA);
 }
 
 void RenderContext::onMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {

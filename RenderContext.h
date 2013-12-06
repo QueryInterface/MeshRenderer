@@ -18,6 +18,7 @@ public:
 	HWND						Window;
 	CComPtr<IDirect3D9>			D3D;
 	CComPtr<IDirect3DDevice9>	Device;
+	CComPtr<IDirect3DSurface9>  DefaultRT;
 
 	RenderContext(const RenderContextSetup& setup);
 	~RenderContext();
@@ -32,6 +33,7 @@ public:
 	void EventSubscribe_MouseMove(IMouseCallback* callback);
 	void EventUnsubscribe(void* callback);
 	bool ProcessMessage();
+
 private:
 	uint32_t m_width;
 	uint32_t m_height;

@@ -49,6 +49,5 @@ private:
 	D3DXMATRIX								m_resultMatrix;
 
     ID3DXBuffer* compileShader(const std::string& shaderSource, const std::string& entryPoint, const std::string& profile, ID3DXConstantTable** outConstantTable = NULL) const;
-
-	COPY_GUARD(Sprite);
+	void copy(const Sprite& s);
 };

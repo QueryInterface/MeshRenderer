@@ -37,7 +37,7 @@ static const std::string g_pixelShaderSource =
     PS_OUTPUT ps_main(PS_INPUT input ) {                    \n\
         PS_OUTPUT output;                                   \n\
         output.Color = tex2D(Tex0, input.TexCoord);			\n\
-        //output.Color = float4(0.9f, 0.8f, 0.4, 1);          \n\
+        //output.Color = float4(0.9f, 0.8f, 0.4, 1);        \n\
         return output;                                      \n\
     }                                                       \n";
 
@@ -49,10 +49,10 @@ Sprite::Sprite(RenderContext* renderContext)
 	m_vertices[0].W = m_vertices[1].W = m_vertices[2].W = m_vertices[3].W= 1.0;
 	m_vertices[0].U = 0.0f;
 	m_vertices[0].V = 0.0f;
-	m_vertices[1].U = 0.0f;
-	m_vertices[1].V = 1.0f;
-	m_vertices[2].U = 1.0f;
-	m_vertices[2].V = 0.0f;
+	m_vertices[1].U = 1.0f;
+	m_vertices[1].V = 0.0f;
+	m_vertices[2].U = 0.0f;
+	m_vertices[2].V = 1.0f;
 	m_vertices[3].U = 1.0f;
 	m_vertices[3].V = 1.0f;
     
@@ -139,6 +139,7 @@ void Sprite::SetTextureCoords(Rect coords) {
 void Sprite::Render() {
 	if (!m_visible) return;
 	CComPtr<IDirect3DDevice9> device = m_renderContext->Device;
+	device->BeginScene();
 	m_vsConstantTable->SetMatrix(m_renderContext->Device, "g_matrix", &m_resultMatrix);
     device->SetVertexShader(m_vertexShader);
     device->SetPixelShader(m_pixelShader);
@@ -146,6 +147,7 @@ void Sprite::Render() {
 	device->SetVertexDeclaration(m_vertexDeclaration);
 	device->SetStreamSource(0, m_vertexBuffer, 0, sizeof(Vertex));
     device->DrawPrimitive(D3DPT_TRIANGLESTRIP, 0, 2);
+	device->EndScene();
 }
 
 inline void Sprite::Show(bool show) {
