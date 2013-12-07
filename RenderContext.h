@@ -23,6 +23,10 @@ public:
 	RenderContext(const RenderContextSetup& setup);
 	~RenderContext();
 	
+	CComPtr<IDirect3DTexture9> CreateRenderTarget(uint32_t width, uint32_t height, D3DFORMAT format);
+	void SetRenderTarget(const CComPtr<IDirect3DTexture9>& rt);
+    void SetRenderTarget(const CComPtr<IDirect3DSurface9>& rt);
+
 	void Clear();
 	void Present();
 	uint32_t GetWindowWidth() {return m_width;}

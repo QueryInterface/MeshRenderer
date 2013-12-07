@@ -1,5 +1,7 @@
 #include "RenderContext.h"
 
+////////////////////////////////////////
+// RenderContext implementation
 RenderContext::RenderContext(const RenderContextSetup& setup) 
     : m_width(setup.Width)
     , m_height(setup.Height) {
@@ -8,6 +10,22 @@ RenderContext::RenderContext(const RenderContextSetup& setup)
 }
 
 RenderContext::~RenderContext() {
+}
+
+CComPtr<IDirect3DTexture9> RenderContext::CreateRenderTarget(uint32_t width, uint32_t height, D3DFORMAT format) {
+	CComPtr<IDirect3DTexture9> rtTexture; 
+	CHECK(Device->CreateTexture(width, height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8, D3DPOOL_DEFAULT, &rtTexture, NULL), "Failed to create render target");
+	return rtTexture;
+}
+
+void RenderContext::SetRenderTarget(const CComPtr<IDirect3DTexture9>& rt) {
+	CComPtr<IDirect3DSurface9> rtSurface;
+	CHECK(rt->GetSurfaceLevel(0, &rtSurface), "Failed to get font surface level");
+	CHECK(Device->SetRenderTarget(0, rtSurface), "Failed to set render target");
+}
+
+void RenderContext::SetRenderTarget(const CComPtr<IDirect3DSurface9>& rt) {
+    CHECK(Device->SetRenderTarget(0, rt), "Failed to set render target");
 }
 
 void RenderContext::Clear() {
