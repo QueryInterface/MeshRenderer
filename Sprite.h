@@ -12,14 +12,28 @@ struct Rect {
     float Bottom;
 };
 
-enum RenderMode {
-    RM_SOLID,
-    RM_ALPHA_TRANSPARENCY,
-    RM_ALPHA_TO_COLOR
-};
-
 class Sprite : public IRenderable {
 public:
+    Sprite(RenderContext* renderContext);
+    virtual ~Sprite();
+
+    virtual void SetTexture(const std::string& texturePath);
+    virtual void SetTexture(CComPtr<IDirect3DTexture9> texture);
+    virtual void SetPosition(float x, float y);
+    virtual void SetSize(float width, float height);
+    virtual void SetColor(float r, float g, float b);
+    virtual void SetTextureCoords(Rect coords);
+
+    virtual uint32_t GetWidth() const;
+    virtual uint32_t GetHeight() const;
+    virtual const Rect& GetTexCoords() const;
+    virtual float GetPosX();
+    virtual float GetPosY();
+
+    virtual void Show(bool show);
+    virtual void Render();
+
+private:
     struct Desc {
         float PosX;
         float PosY;
@@ -27,22 +41,6 @@ public:
         float Height;
         Rect  TexCoords;
     };
-public:
-    Sprite(RenderContext* renderContext, RenderMode mode = RM_ALPHA_TRANSPARENCY);
-    virtual ~Sprite();
-
-    virtual void SetTexture(const std::string& texturePath);
-    virtual void SetTexture(CComPtr<IDirect3DTexture9> texture);
-    virtual void SetPosition(float x, float y);
-    virtual void SetSize(float width, float height);
-    virtual void SetTextureCoords(Rect coords);
-
-    const Desc& GetDesc();
-
-    virtual void Show(bool show);
-    virtual void Render();
-
-private:
     struct Vertex {
         float X, Y, Z, W;
         float U, V;
@@ -64,6 +62,7 @@ private:
     D3DXMATRIX                              m_scaleMatrix;
     D3DXMATRIX                              m_translateMatrix;
     D3DXMATRIX								m_resultMatrix;
+    D3DXVECTOR4                             m_color;
 
     ID3DXBuffer* compileShader(const std::string& shaderSource, const std::string& entryPoint, const std::string& profile, ID3DXConstantTable** outConstantTable = NULL) const;
     void copy(const Sprite& s);

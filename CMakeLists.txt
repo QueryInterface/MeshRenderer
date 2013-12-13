@@ -31,16 +31,19 @@ include_directories(${3RDPARTY_DIR}/freetype/include)
 
 # Form executable
 add_executable(MeshRenderer
+			  IRenderable.h
               main.cpp
               common.h
               Sprite.h
               Sprite.cpp
-			  Font.h
-			  Font.cpp
+			  Text.h
+			  Text.cpp
               RenderContext.h
               RenderContext.cpp
               Console.h
-              Console.cpp)
+              Console.cpp
+			  LayoutManager.h
+			  LayoutManager.cpp)
 
 target_link_libraries(MeshRenderer d3d9 d3dx9 freetype Utils)
 

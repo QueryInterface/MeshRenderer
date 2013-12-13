@@ -1,4 +1,5 @@
 #include "RenderContext.h"
+#include "LayoutManager.h"
 #include "Sprite.h"
 #include "Font.h"
 #include "Console.h"
@@ -13,7 +14,9 @@ int main() {
         setup.Width = 640;
         setup.Height = 480;
         RenderContext renderContext(setup);
-        Font font(&renderContext, fontPath);
+        LayoutManager layout(&renderContext);
+
+        Font font(&renderContext, fontPath, &layout);
         Sprite sprite(&renderContext);
         Console console(&renderContext);
 

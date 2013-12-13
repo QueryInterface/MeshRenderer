@@ -22,7 +22,7 @@ static const std::string g_vertexShaderSource =
         return output;                                      \n\
     }                                                       \n";
 
-static const std::string g_pixelShaderSource0 = 
+static const std::string g_pixelShaderSource = 
     "struct PS_INPUT {                                      \n\
         float4 Position : POSITION;                         \n\
         float2 TexCoord : TEXCOORD0;                        \n\
@@ -33,40 +33,17 @@ static const std::string g_pixelShaderSource0 =
     };                                                      \n\
                                                             \n\
     sampler2D Tex0;                                         \n\
+    float4    Color;                                        \n\
                                                             \n\
     PS_OUTPUT ps_main(PS_INPUT input ) {                    \n\
         PS_OUTPUT output;                                   \n\
-        output.Color = tex2D(Tex0, input.TexCoord);			\n\
+        float4 texColor = tex2D(Tex0, input.TexCoord);      \n\
+        output.Color = mul(Color, texColor);			    \n\
         //output.Color = float4(0.9f, 0.8f, 0.4, 1);        \n\
         return output;                                      \n\
     }                                                       \n";
 
-static const std::string g_pixelShaderSource1 = 
-    "struct PS_INPUT {                                      \n\
-        float4 Position : POSITION;                         \n\
-        float2 TexCoord : TEXCOORD0;                        \n\
-    };                                                      \n\
-                                                            \n\
-    struct PS_OUTPUT {                                      \n\
-        float4 Color : COLOR0;                              \n\
-    };                                                      \n\
-                                                            \n\
-    sampler2D Tex0;                                         \n\
-                                                            \n\
-    PS_OUTPUT ps_main(PS_INPUT input ) {                    \n\
-        PS_OUTPUT output;                                   \n\
-        float4 color = tex2D(Tex0, input.TexCoord);         \n\
-        if (color.w) {                                      \n\
-            output.Color = float4(color.w, color.w, color.w, 1.0f); \n\
-        }                                                   \n\
-        else {                                              \n\
-            output.Color = color;                           \n\
-        }                                                   \n\
-        //output.Color = float4(0.9f, 0.8f, 0.4, 1);        \n\
-        return output;                                      \n\
-    }                                                       \n";
-
-Sprite::Sprite(RenderContext* renderContext, RenderMode mode)
+Sprite::Sprite(RenderContext* renderContext)
     : m_renderContext(renderContext)
     , m_visible(true) {
     memset(&m_vertices, 0, sizeof(m_vertices)); 
@@ -106,14 +83,7 @@ Sprite::Sprite(RenderContext* renderContext, RenderMode mode)
     CComPtr<ID3DXBuffer> shaderBinary;
     shaderBinary = compileShader(g_vertexShaderSource, "vs_main", "vs_2_0", &m_vsConstantTable);
     CHECK(m_renderContext->Device->CreateVertexShader((DWORD*)shaderBinary->GetBufferPointer(), &m_vertexShader), "Failed to create vertex shader");
-    switch (mode) {
-    case RM_ALPHA_TRANSPARENCY:
-        shaderBinary = compileShader(g_pixelShaderSource0, "ps_main", "ps_2_0", &m_psConstantTable);
-        break;
-    case RM_ALPHA_TO_COLOR:
-        shaderBinary = compileShader(g_pixelShaderSource1, "ps_main", "ps_2_0", &m_psConstantTable);
-        break;
-    }
+    shaderBinary = compileShader(g_pixelShaderSource, "ps_main", "ps_2_0", &m_psConstantTable);
     CHECK(m_renderContext->Device->CreatePixelShader((DWORD*)shaderBinary->GetBufferPointer(), &m_pixelShader), "Failed to create pixel shader");
     // Set transformation matrix to identity
     D3DXMatrixIdentity(&m_scaleMatrix);
@@ -134,8 +104,8 @@ void Sprite::SetTexture(CComPtr<IDirect3DTexture9> texture) {
 }
 
 void Sprite::SetPosition(float x, float y) {
-    float x_shift = -1.0f + 2.0 * x;
-    float y_shift = 1.0f - 2.0 * y;
+    float x_shift = -1.0f + 2.0f * x;
+    float y_shift = 1.0f - 2.0f * y;
     D3DXMatrixTranslation(&m_translateMatrix, x_shift, y_shift, 0.0f);
     D3DXMatrixMultiply(&m_resultMatrix, &m_scaleMatrix, &m_translateMatrix);
     CHECK(m_vsConstantTable->SetMatrix(m_renderContext->Device, "g_matrix", &m_resultMatrix), "Failed to set g_matrix variable in VS shader");
@@ -156,6 +126,13 @@ void Sprite::SetSize(float width, float height) {
     m_desc.Height = height;
 }
 
+void Sprite::SetColor(float r, float g, float b) {
+    m_color.x = r;
+    m_color.y = g;
+    m_color.z = b;
+    m_color.w = 1.0f;
+}
+
 void Sprite::SetTextureCoords(Rect coords) {
     m_vertices[0].U = coords.Left;
     m_vertices[0].V = coords.Top;
@@ -173,15 +150,12 @@ void Sprite::SetTextureCoords(Rect coords) {
     m_desc.TexCoords = coords;
 }
 
-const Sprite::Desc& Sprite::GetDesc() {
-    return m_desc;
-}
-
 void Sprite::Render() {
     if (!m_visible) return;
     CComPtr<IDirect3DDevice9> device = m_renderContext->Device;
     device->BeginScene();
     m_vsConstantTable->SetMatrix(m_renderContext->Device, "g_matrix", &m_resultMatrix);
+    m_psConstantTable->SetFloatArray(m_renderContext->Device, "Color", (float*)&m_color, 4);
     device->SetVertexShader(m_vertexShader);
     device->SetPixelShader(m_pixelShader);
     device->SetTexture(0, m_texture);
@@ -189,6 +163,26 @@ void Sprite::Render() {
     device->SetStreamSource(0, m_vertexBuffer, 0, sizeof(Vertex));
     device->DrawPrimitive(D3DPT_TRIANGLESTRIP, 0, 2);
     device->EndScene();
+}
+
+uint32_t Sprite::GetWidth() const {
+    return m_desc.Width;
+}
+
+uint32_t Sprite::GetHeight() const {
+    return m_desc.Height;
+}
+
+const Rect& Sprite::GetTexCoords() const {
+    return m_desc.TexCoords;
+}
+
+float Sprite::GetPosX() {
+    return m_desc.PosX;
+}
+
+float Sprite::GetPosY() {
+    return m_desc.PosY;
 }
 
 inline void Sprite::Show(bool show) {

@@ -2,12 +2,18 @@
 #include "common.h"
 #include "IRenderable.h"
 
-class LayoutManager {
+class RenderContext;
+
+class LayoutManager : public IRenderable {
 public:
-	LayoutManager();
+	LayoutManager(RenderContext* renderContext);
 	virtual ~LayoutManager();
-	virtual void Render();
+    virtual void AddItem(IRenderable* item, const std::string& tag);
+    virtual uint32_t GetWidth() const;
+    virtual uint32_t GetHeight() const;
+    virtual void Render();
 private:
-	std::list<IRenderable> m_childs;
+    RenderContext*  m_renderContext;
+	std::list<IRenderable*> m_childs;
 };
 

@@ -14,7 +14,7 @@ RenderContext::~RenderContext() {
 
 CComPtr<IDirect3DTexture9> RenderContext::CreateRenderTarget(uint32_t width, uint32_t height, D3DFORMAT format) {
 	CComPtr<IDirect3DTexture9> rtTexture; 
-	CHECK(Device->CreateTexture(width, height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8, D3DPOOL_DEFAULT, &rtTexture, NULL), "Failed to create render target");
+	CHECK(Device->CreateTexture(width, height, 1, D3DUSAGE_RENDERTARGET, format, D3DPOOL_DEFAULT, &rtTexture, NULL), "Failed to create render target");
 	return rtTexture;
 }
 
