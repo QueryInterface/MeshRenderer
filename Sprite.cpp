@@ -38,14 +38,18 @@ static const std::string g_pixelShaderSource =
     PS_OUTPUT ps_main(PS_INPUT input ) {                    \n\
         PS_OUTPUT output;                                   \n\
         float4 texColor = tex2D(Tex0, input.TexCoord);      \n\
-        output.Color = mul(Color, texColor);			    \n\
-        //output.Color = float4(0.9f, 0.8f, 0.4, 1);        \n\
+        output.Color = Color * texColor;			        \n\
         return output;                                      \n\
     }                                                       \n";
 
-Sprite::Sprite(RenderContext* renderContext)
+Sprite::Sprite(RenderContext* renderContext, IRenderDesc* parent)
     : m_renderContext(renderContext)
+    , m_parent(parent)
+    , m_color(1.0f, 1.0f, 1.0f, 1.0f)
     , m_visible(true) {
+    if (!m_renderContext) {
+        throw std::runtime_error("Sprite render context is NULL");
+    }
     memset(&m_vertices, 0, sizeof(m_vertices)); 
     m_vertices[0].Z = m_vertices[1].Z = m_vertices[2].Z = m_vertices[3].Z = 0.5;
     m_vertices[0].W = m_vertices[1].W = m_vertices[2].W = m_vertices[3].W= 1.0;
@@ -95,6 +99,12 @@ Sprite::~Sprite() {
 
 }
 
+void Sprite::SetParent(IRenderDesc* parent) {
+    m_parent = parent;
+    adjustSize();
+    adjustPosition();
+}
+
 void Sprite::SetTexture(const std::string& texturePath ) {
     D3DXCreateTextureFromFile(m_renderContext->Device, texturePath.c_str(), &m_texture);
 }
@@ -104,33 +114,28 @@ void Sprite::SetTexture(CComPtr<IDirect3DTexture9> texture) {
 }
 
 void Sprite::SetPosition(float x, float y) {
-    float x_shift = -1.0f + 2.0f * x;
-    float y_shift = 1.0f - 2.0f * y;
-    D3DXMatrixTranslation(&m_translateMatrix, x_shift, y_shift, 0.0f);
-    D3DXMatrixMultiply(&m_resultMatrix, &m_scaleMatrix, &m_translateMatrix);
-    CHECK(m_vsConstantTable->SetMatrix(m_renderContext->Device, "g_matrix", &m_resultMatrix), "Failed to set g_matrix variable in VS shader");
     m_desc.PosX = x;
     m_desc.PosY = y;
+    adjustPosition();
 }
 
 void Sprite::SetSize(float width, float height) {
     if (width < 0.0f || height  < 0.0f) {
         throw std::runtime_error("Invalid size values");
     }
-    float w = 2.0f * width;
-    float h = 2.0f * height;
-    D3DXMatrixScaling(&m_scaleMatrix, w, h, 1.0f);
-    D3DXMatrixMultiply(&m_resultMatrix, &m_scaleMatrix, &m_translateMatrix);
-    CHECK(m_vsConstantTable->SetMatrix(m_renderContext->Device, "g_matrix", &m_resultMatrix), "Failed to set g_matrix variable in VS shader");
     m_desc.Width = width;
     m_desc.Height = height;
+    adjustSize();
 }
 
 void Sprite::SetColor(float r, float g, float b) {
     m_color.x = r;
     m_color.y = g;
     m_color.z = b;
-    m_color.w = 1.0f;
+}
+
+void Sprite::SetOpacity(float alpha) {
+    m_color.w = alpha;
 }
 
 void Sprite::SetTextureCoords(Rect coords) {
@@ -161,28 +166,12 @@ void Sprite::Render() {
     device->SetTexture(0, m_texture);
     device->SetVertexDeclaration(m_vertexDeclaration);
     device->SetStreamSource(0, m_vertexBuffer, 0, sizeof(Vertex));
+    device->SetRenderState(D3DRS_ALPHABLENDENABLE, true);
+    device->SetRenderState(D3DRS_SRCBLEND,D3DBLEND_SRCALPHA);
+    device->SetRenderState(D3DRS_DESTBLEND,D3DBLEND_INVSRCALPHA);
+    device->SetRenderState(D3DRS_BLENDOP,D3DBLENDOP_ADD);
     device->DrawPrimitive(D3DPT_TRIANGLESTRIP, 0, 2);
     device->EndScene();
-}
-
-uint32_t Sprite::GetWidth() const {
-    return m_desc.Width;
-}
-
-uint32_t Sprite::GetHeight() const {
-    return m_desc.Height;
-}
-
-const Rect& Sprite::GetTexCoords() const {
-    return m_desc.TexCoords;
-}
-
-float Sprite::GetPosX() {
-    return m_desc.PosX;
-}
-
-float Sprite::GetPosY() {
-    return m_desc.PosY;
 }
 
 inline void Sprite::Show(bool show) {
@@ -199,4 +188,26 @@ ID3DXBuffer* Sprite::compileShader(const std::string& shaderSource, const std::s
     CHECK(D3DXCompileShader(shaderSource.c_str(), shaderSource.length(), NULL, NULL, entryPoint.c_str(), profile.c_str(), flags, &binaryShader, &shaderErrors, outConstantTable),
         (char*)shaderErrors->GetBufferPointer());
     return binaryShader;
+}
+
+void Sprite::adjustSize() {
+    float parentWidth = m_parent ? m_parent->GetWidth() : 1.0f;
+    float parentHeight = m_parent ? m_parent->GetHeight() : 1.0f;
+    float w = 2.0f * m_desc.Width * parentWidth;
+    float h = 2.0f * m_desc.Height * parentHeight;
+    D3DXMatrixScaling(&m_scaleMatrix, w, h, 1.0f);
+    D3DXMatrixMultiply(&m_resultMatrix, &m_scaleMatrix, &m_translateMatrix);
+    CHECK(m_vsConstantTable->SetMatrix(m_renderContext->Device, "g_matrix", &m_resultMatrix), "Failed to set g_matrix variable in VS shader");
+}
+
+void Sprite::adjustPosition() {
+    float parentWidth = m_parent ? m_parent->GetWidth() : 1.0f;
+    float parentHeight = m_parent ? m_parent->GetHeight() : 1.0f;
+    float parentX = m_parent ? m_parent->GetX() : 0.0f;
+    float parentY = m_parent ? m_parent->GetY() : 0.0f;
+    float x_shift = -1.0f + 2.0f * (m_desc.PosX * parentWidth + parentX);
+    float y_shift = 1.0f - 2.0f * (m_desc.PosY * parentHeight + parentY);
+    D3DXMatrixTranslation(&m_translateMatrix, x_shift, y_shift, 0.0f);
+    D3DXMatrixMultiply(&m_resultMatrix, &m_scaleMatrix, &m_translateMatrix);
+    CHECK(m_vsConstantTable->SetMatrix(m_renderContext->Device, "g_matrix", &m_resultMatrix), "Failed to set g_matrix variable in VS shader");
 }

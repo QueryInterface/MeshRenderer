@@ -1,5 +1,6 @@
 #pragma once
 #include "common.h"
+#include "IRenderable.h"
 
 struct RenderContextSetup {
 	uint32_t Width;
@@ -13,21 +14,41 @@ struct IMouseCallback {
 	virtual void ProcessMouse() = 0;
 };
 
+class RenderTarget : public IRenderDesc {
+public:
+    virtual void MakeCurrent();
+    virtual uint32_t GetPixelWidth() const;
+    virtual uint32_t GetPixelHeight() const;
+    virtual float GetWidth() const;
+    virtual float GetHeight() const;
+    virtual float GetX() const;
+    virtual float GetY() const;
+private:
+    friend class RenderContext;
+    uint32_t                   m_width;
+    uint32_t                   m_height;
+    CComPtr<IDirect3DSurface9> m_surface;
+    RenderContext* m_renderContext;
+
+    RenderTarget() {}
+    RenderTarget(CComPtr<IDirect3DSurface9> rtSurface);
+    RenderTarget(RenderContext* renderContext, uint32_t width, uint32_t height, D3DFORMAT format);
+    IDirect3DSurface9** operator&();
+};
+
 class RenderContext {
 public:
 	HWND						Window;
 	CComPtr<IDirect3D9>			D3D;
 	CComPtr<IDirect3DDevice9>	Device;
-	CComPtr<IDirect3DSurface9>  DefaultRT;
+    RenderTarget                DefaultRT;
 
 	RenderContext(const RenderContextSetup& setup);
 	~RenderContext();
 	
-	CComPtr<IDirect3DTexture9> CreateRenderTarget(uint32_t width, uint32_t height, D3DFORMAT format);
-	void SetRenderTarget(const CComPtr<IDirect3DTexture9>& rt);
-    void SetRenderTarget(const CComPtr<IDirect3DSurface9>& rt);
+    RenderTarget CreateRenderTarget(uint32_t width, uint32_t height, D3DFORMAT format);
 
-	void Clear();
+    void Clear();
 	void Present();
 	uint32_t GetWindowWidth() {return m_width;}
 	uint32_t GetWindowHeight() {return m_height;}
@@ -52,3 +73,27 @@ private:
 	void onMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 	static LRESULT WINAPI msgProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 };
+
+inline uint32_t RenderTarget::GetPixelWidth() const {
+    return m_width;
+}
+
+inline uint32_t RenderTarget::GetPixelHeight() const {
+    return m_height;
+}
+
+inline float RenderTarget::GetWidth() const {
+    return 1.0f;
+}
+
+inline float RenderTarget::GetHeight() const {
+    return 1.0f;
+}
+
+inline float RenderTarget::GetX() const {
+    return 0.0f;
+}
+
+inline float RenderTarget::GetY() const {
+    return 0.0f;
+}

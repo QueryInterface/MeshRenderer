@@ -32,12 +32,11 @@ include_directories(${3RDPARTY_DIR}/freetype/include)
 # Form executable
 add_executable(MeshRenderer
 			  IRenderable.h
+			  MathBasics.h
               main.cpp
               common.h
               Sprite.h
               Sprite.cpp
-			  Text.h
-			  Text.cpp
               RenderContext.h
               RenderContext.cpp
               Console.h

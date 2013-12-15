@@ -9,30 +9,8 @@
 
 class RenderContext;
 
-class Text : public IRenderable {
+class Text : public IRenderElement {
 public:
-    struct set_size {
-        set_size(uint32_t size) : m_size(size) {
-        }
-    private:
-        friend Text;
-        uint32_t m_size;
-    };
-
-    struct set_pos {
-        set_pos(float x, float y) : m_pos(x, y) {
-        }
-    private:
-        friend Text;
-        Vector2<float> m_pos;
-    };
-    struct set_color {
-        set_color(float r, float g, float b) : m_color(r, g, b) {
-        }
-    private:
-        friend Text;
-        Vector3<float> m_color;
-    };
     struct Iterator {
         Iterator(const Iterator& iter) {
             *this = iter;
@@ -76,10 +54,9 @@ public:
             return m_iter != arg.m_iter;
         }
     private:
+        friend Text;
         Iterator();
         Iterator(std::list<std::pair<char, shared_ptr<Sprite>>>::iterator& iter) : m_iter(iter) {};
-        Iterator(std::list<std::pair<char, shared_ptr<Sprite>>>::const_iterator& iter) : m_iter(iter) {};
-        friend Text;
         std::list<std::pair<char, shared_ptr<Sprite>>>::iterator m_iter;
     };
     
@@ -96,9 +73,6 @@ public:
     virtual void Clear();
     virtual void Render();
     // Operators
-    virtual Text& operator<<(const set_size& token);
-    virtual Text& operator<<(const set_pos&  token);
-    virtual Text& operator<<(const set_color& token);
     virtual Text& operator<<(const char* text);
     virtual Text& operator<<(const std::string& text);
 

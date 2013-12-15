@@ -1,6 +1,32 @@
 #include "RenderContext.h"
 
 ////////////////////////////////////////
+// RenderTarget implementation
+RenderTarget::RenderTarget(RenderContext* renderContext, uint32_t width, uint32_t height, D3DFORMAT format) 
+    : m_width(width)
+    , m_height(height)
+    , m_renderContext(renderContext) {
+    CComPtr<IDirect3DTexture9> texture;
+    CHECK(m_renderContext->Device->CreateTexture(width, height, 1, D3DUSAGE_RENDERTARGET, format, D3DPOOL_DEFAULT, &texture, NULL), "Failed to create render target");
+	CHECK(texture->GetSurfaceLevel(0, &m_surface), "Failed to get font surface level");
+}
+
+RenderTarget::RenderTarget(CComPtr<IDirect3DSurface9> surface) {
+    D3DSURFACE_DESC desc;
+    surface->GetDesc(&desc);
+    m_width = desc.Width;
+    m_height = desc.Height;
+}
+
+IDirect3DSurface9** RenderTarget::operator&() {
+    return &m_surface;
+}
+
+void RenderTarget::MakeCurrent() {
+    CHECK(m_renderContext->Device->SetRenderTarget(0, m_surface), "Failed to set render target");
+}
+
+////////////////////////////////////////
 // RenderContext implementation
 RenderContext::RenderContext(const RenderContextSetup& setup) 
     : m_width(setup.Width)
@@ -12,20 +38,8 @@ RenderContext::RenderContext(const RenderContextSetup& setup)
 RenderContext::~RenderContext() {
 }
 
-CComPtr<IDirect3DTexture9> RenderContext::CreateRenderTarget(uint32_t width, uint32_t height, D3DFORMAT format) {
-	CComPtr<IDirect3DTexture9> rtTexture; 
-	CHECK(Device->CreateTexture(width, height, 1, D3DUSAGE_RENDERTARGET, format, D3DPOOL_DEFAULT, &rtTexture, NULL), "Failed to create render target");
-	return rtTexture;
-}
-
-void RenderContext::SetRenderTarget(const CComPtr<IDirect3DTexture9>& rt) {
-	CComPtr<IDirect3DSurface9> rtSurface;
-	CHECK(rt->GetSurfaceLevel(0, &rtSurface), "Failed to get font surface level");
-	CHECK(Device->SetRenderTarget(0, rtSurface), "Failed to set render target");
-}
-
-void RenderContext::SetRenderTarget(const CComPtr<IDirect3DSurface9>& rt) {
-    CHECK(Device->SetRenderTarget(0, rt), "Failed to set render target");
+RenderTarget RenderContext::CreateRenderTarget(uint32_t width, uint32_t height, D3DFORMAT format) {
+    return RenderTarget(this, width, height, format);
 }
 
 void RenderContext::Clear() {

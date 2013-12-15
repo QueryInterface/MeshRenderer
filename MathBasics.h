@@ -24,3 +24,13 @@ struct Vector3 {
     T y;
     T z;
 };
+
+template <class T>
+struct Vector4 {
+    Vector4() {}
+    Vector4(T x_, T y_, T z_, T w_) : x(x_), y(y_), z(z_), w(w_) {}
+    T x;
+    T y;
+    T z;
+    T w;
+};

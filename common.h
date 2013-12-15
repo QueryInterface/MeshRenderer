@@ -14,7 +14,7 @@
 #include <d3d9.h>
 #include <memory>
 #include <string>
-#include "Math.h"
+#include "MathBasics.h"
 
 using std::unique_ptr;
 using std::shared_ptr;

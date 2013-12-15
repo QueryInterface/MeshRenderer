@@ -24,7 +24,7 @@ void Text::Clear() {
 }
 
 void Text::Render() {
-    Sprite sprite(m_renderContext);
+    Sprite sprite(m_renderContext, m_parent);
     prerenderText();
     sprite.SetPosition(m_textData.BoundingRect.Left, m_textData.BoundingRect.Top);
     sprite.SetSize(m_textData.BoundingRect.Right - m_textData.BoundingRect.Left, m_textData.BoundingRect.Bottom - m_textData.BoundingRect.Top);
@@ -153,45 +153,45 @@ void Text::processString(const char* text) {
 }
 
 void Text::prerenderText() {
-    //if (m_textData.PrerenderedText) return;
+    ////if (m_textData.PrerenderedText) return;
 
-    m_textData.BoundingRect.Left = m_textData.BoundingRect.Top = 1.0f;
-    m_textData.BoundingRect.Right = m_textData.BoundingRect.Bottom = 0.0f;
-    for (auto letter : m_textData.Text) {
-        shared_ptr<Sprite>& sprite = letter.second;
-        if (sprite->GetPosX() < m_textData.BoundingRect.Left) m_textData.BoundingRect.Left = sprite->GetPosX();
-        if (sprite->GetPosY() < m_textData.BoundingRect.Top) m_textData.BoundingRect.Top = sprite->GetPosY();
-        if (sprite->GetPosX() + sprite->GetWidth()> m_textData.BoundingRect.Right) m_textData.BoundingRect.Right = sprite->GetPosX() + sprite->GetWidth();
-        if (sprite->GetPosY() + sprite->GetHeight() > m_textData.BoundingRect.Bottom) m_textData.BoundingRect.Bottom = sprite->GetPosY() + sprite->GetHeight(); 
-    };
-    // Create a new copy of glyphs in space of bounding box
-    float width_n = (m_textData.BoundingRect.Right - m_textData.BoundingRect.Left);
-    float height_n = (m_textData.BoundingRect.Bottom - m_textData.BoundingRect.Top);
-    uint32_t width = width_n * m_parent->GetWidth();
-    uint32_t height = height_n * m_parent->GetHeight();
-    std::list<Sprite> glyphsCopy = m_textData.Glyphs;
-    std::for_each(glyphsCopy.begin(), glyphsCopy.end(), [&](Sprite& sprite) {
-        sprite->SetPosition((sprite->GetPosX() - m_textData.BoundingRect.Left) / width_n, (sprite->GetPosY() - m_textData.BoundingRect.Top) / height_n);
-        sprite->SetSize(sprite->GetWidth() / width_n, sprite->GetHeight() / height_n);
-    });
-    CComPtr<IDirect3DTexture9> tex = m_renderContext->CreateRenderTarget(width, height, D3DFMT_A8R8G8B8);
-    m_renderContext->SetRenderTarget(tex);
-    m_renderContext->Clear();
-    // Render sprites
-    //D3DVIEWPORT9 prevViewPort;
-    //D3DVIEWPORT9 newViewPort;
-    //newViewPort.X = 0;
-    //newViewPort.Y = 0;
-    //newViewPort.Width = width;
-    //newViewPort.Height = height;
-    //newViewPort.MinZ = 0.0f;
-    //newViewPort.MaxZ = 1.0f;
-    //m_renderContext->Device->GetViewport(&prevViewPort);
-    //m_renderContext->Device->SetViewport(&newViewPort);
-    std::for_each(glyphsCopy.begin(), glyphsCopy.end(), [&](Sprite sprite) {
-        sprite->Render();
-    });
-    //m_renderContext->Device->SetViewport(&prevViewPort);
-    m_renderContext->SetRenderTarget(m_renderContext->DefaultRT);
-    m_textData.PrerenderedText = tex;
+    //m_textData.BoundingRect.Left = m_textData.BoundingRect.Top = 1.0f;
+    //m_textData.BoundingRect.Right = m_textData.BoundingRect.Bottom = 0.0f;
+    //for (auto letter : m_textData.Text) {
+    //    shared_ptr<Sprite>& sprite = letter.second;
+    //    if (sprite->GetX() < m_textData.BoundingRect.Left) m_textData.BoundingRect.Left = sprite->GetX();
+    //    if (sprite->GetY() < m_textData.BoundingRect.Top) m_textData.BoundingRect.Top = sprite->GetY();
+    //    if (sprite->GetX() + sprite->GetWidth()> m_textData.BoundingRect.Right) m_textData.BoundingRect.Right = sprite->GetX() + sprite->GetWidth();
+    //    if (sprite->GetY() + sprite->GetHeight() > m_textData.BoundingRect.Bottom) m_textData.BoundingRect.Bottom = sprite->GetY() + sprite->GetHeight(); 
+    //};
+    //// Create a new copy of glyphs in space of bounding box
+    //float width_n = (m_textData.BoundingRect.Right - m_textData.BoundingRect.Left);
+    //float height_n = (m_textData.BoundingRect.Bottom - m_textData.BoundingRect.Top);
+    //uint32_t width = width_n * m_parent->GetWidth();
+    //uint32_t height = height_n * m_parent->GetHeight();
+    //std::list<Sprite> glyphsCopy = m_textData.Glyphs;
+    //std::for_each(glyphsCopy.begin(), glyphsCopy.end(), [&](Sprite& sprite) {
+    //    sprite->SetPosition((sprite->GetPosX() - m_textData.BoundingRect.Left) / width_n, (sprite->GetPosY() - m_textData.BoundingRect.Top) / height_n);
+    //    sprite->SetSize(sprite->GetWidth() / width_n, sprite->GetHeight() / height_n);
+    //});
+    //CComPtr<IDirect3DTexture9> tex = m_renderContext->CreateRenderTarget(width, height, D3DFMT_A8R8G8B8);
+    //m_renderContext->SetRenderTarget(tex);
+    //m_renderContext->Clear();
+    //// Render sprites
+    ////D3DVIEWPORT9 prevViewPort;
+    ////D3DVIEWPORT9 newViewPort;
+    ////newViewPort.X = 0;
+    ////newViewPort.Y = 0;
+    ////newViewPort.Width = width;
+    ////newViewPort.Height = height;
+    ////newViewPort.MinZ = 0.0f;
+    ////newViewPort.MaxZ = 1.0f;
+    ////m_renderContext->Device->GetViewport(&prevViewPort);
+    ////m_renderContext->Device->SetViewport(&newViewPort);
+    //std::for_each(glyphsCopy.begin(), glyphsCopy.end(), [&](Sprite sprite) {
+    //    sprite->Render();
+    //});
+    ////m_renderContext->Device->SetViewport(&prevViewPort);
+    //m_renderContext->SetRenderTarget(m_renderContext->DefaultRT);
+    //m_textData.PrerenderedText = tex;
 }
