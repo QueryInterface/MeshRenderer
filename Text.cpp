@@ -3,9 +3,13 @@
 #include "Sprite.h"
 #include <direct.h>
 
-Text::Text(RenderContext* renderContext, std::string& fontPath, IRenderable* parent) 
+#define MAX_FONT_SIZE 64
+
+Text::Text(RenderContext* renderContext, std::string& fontPath, float fontSize, IRenderable* parent) 
     : m_renderContext(renderContext)
-    , m_parent(parent) {
+    , m_parent(parent)
+    , m_prerenderedText(renderContext)
+    , m_prerenderIsDirty(true) {
     FT_Library fontLibrary;
     if(FT_Init_FreeType(&fontLibrary)) {
         throw std::runtime_error("Failed to create FreeType object");
@@ -13,37 +17,35 @@ Text::Text(RenderContext* renderContext, std::string& fontPath, IRenderable* par
     if(FT_New_Face(fontLibrary, fontPath.c_str(), 0, &m_fontFace)) {
         throw std::runtime_error("Failed to create FreeType font face");
     }
-    FT_Set_Pixel_Sizes(m_fontFace, 0, m_curFontDesc.Size);
+    FT_Set_Pixel_Sizes(m_fontFace, 0, MAX_FONT_SIZE);
 }
 
 Text::~Text() {
 }
 
 void Text::Clear() {
-    m_textData.Text.clear();	
+    m_text.clear();	
 }
 
 void Text::Render() {
-    Sprite sprite(m_renderContext, m_parent);
-    prerenderText();
-    sprite.SetPosition(m_textData.BoundingRect.Left, m_textData.BoundingRect.Top);
-    sprite.SetSize(m_textData.BoundingRect.Right - m_textData.BoundingRect.Left, m_textData.BoundingRect.Bottom - m_textData.BoundingRect.Top);
-    sprite.SetTexture(m_prerenderedText);
-    sprite.Render();
+    if (m_prerenderIsDirty) {
+        prerenderText();
+    }
+    m_prerenderedText.Render();
 }
 
 inline Text::Iterator Text::Begin() const {
-    return m_textData.Text.begin();
+    return m_text.begin();
 }
 
 inline Text::Iterator Text::End() const {
-    return m_textData.Text.end();
+    return m_text.end();
 }
 
 inline Text::Iterator Text::Erase(Iterator& iter) {
     // TODO: Optimize so erase is performed with constant time
-    Iterator ret = m_textData.Text.erase(iter.m_iter);
-    prerenderText();
+    Iterator ret = m_text.erase(iter.m_iter);
+    m_prerenderIsDirty = true;
     return ret;
 }
 
@@ -53,10 +55,10 @@ Text& Text::operator<<(const set_size& token) {
     return *this;
 }
 
-Text& Text::operator<<(const set_pos&  token) {
-    m_curFontDesc.Position = std::move(token.m_pos);
-    return *this;
-}
+//Text& Text::operator<<(const set_pos&  token) {
+//    m_curFontDesc.Position = std::move(token.m_pos);
+//    return *this;
+//}
 
 Text& Text::operator<<(const set_color& token) {
     m_curFontDesc.Color = std::move(token.m_color);
@@ -73,38 +75,36 @@ Text& Text::operator<<(const std::string& text) {
     return *this;
 }
 
-const Text::GlyphDesc* Text::getGlyphDesc(uint8_t c) {
-    CComPtr<IDirect3DTexture9> glyphTexture;
-    auto glyphTextureIter = m_glyphDescs.find(c);
-    if (glyphTextureIter != m_glyphDescs.end()) {
-        return &(glyphTextureIter->second);
+const CComPtr<IDirect3DTexture9>& Text::getGlyphTexture(uint8_t c) {
+    auto glyphTextureIter = m_glyphTextures.find(c);
+    if (glyphTextureIter != m_glyphTextures.end()) {
+        return glyphTextureIter->second;
     }
     else {
         if (!FT_Load_Char(m_fontFace, c, FT_LOAD_RENDER)) {
-            GlyphDesc& glyphDesc = m_glyphDescs[c];
-            glyphDesc.Width = m_fontFace->glyph->bitmap.width;
-            glyphDesc.Height = m_fontFace->glyph->bitmap.rows;
-            CHECK(m_renderContext->Device->CreateTexture(glyphDesc.Width, glyphDesc.Height, 1, D3DUSAGE_DYNAMIC, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &glyphTexture, NULL), "Failed to create glyph texture");
+            CComPtr<IDirect3DTexture9>& glyphTexture = m_glyphTextures[c];
+            uint32_t width = m_fontFace->glyph->bitmap.width;
+            uint32_t height = m_fontFace->glyph->bitmap.rows;
+            CHECK(m_renderContext->Device->CreateTexture(width, height, 1, D3DUSAGE_DYNAMIC, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &glyphTexture, NULL), "Failed to create glyph texture");
             D3DLOCKED_RECT rect;
             glyphTexture->LockRect(0, &rect, NULL, D3DLOCK_DISCARD);
             uint8_t* src = m_fontFace->glyph->bitmap.buffer;
             uint8_t* dst = (uint8_t*)rect.pBits;
-            for (uint32_t i = 0; i < glyphDesc.Height; i++) {
-                for (uint32_t j = 0; j < glyphDesc.Width; j++) {
+            for (uint32_t i = 0; i < height; i++) {
+                for (uint32_t j = 0; j < width; j++) {
                     dst[4*j] = src[j];
                     dst[4*j + 1] = src[j];
                     dst[4*j + 2] = src[j];
                     dst[4*j + 3] = src[j];
                 }
                 dst += rect.Pitch;
-                src += glyphDesc.Width;
+                src += width;
             }
             glyphTexture->UnlockRect(0);
-            glyphDesc.Texture = glyphTexture;
-            return &glyphDesc;
+            return glyphTexture;
         }
     }
-    return NULL;
+    return nullptr;
 }
 
 void Text::processString(const char* text) {
@@ -194,4 +194,5 @@ void Text::prerenderText() {
     ////m_renderContext->Device->SetViewport(&prevViewPort);
     //m_renderContext->SetRenderTarget(m_renderContext->DefaultRT);
     //m_textData.PrerenderedText = tex;
+    m_prerenderIsDirty = false;
 }

@@ -18,6 +18,7 @@
 
 using std::unique_ptr;
 using std::shared_ptr;
+using std::map;
 using std::list;
 using std::pair;
 

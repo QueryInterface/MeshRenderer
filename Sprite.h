@@ -20,7 +20,7 @@ public:
 
     virtual void SetParent(IRenderDesc* parent);
     virtual void SetTexture(const std::string& texturePath);
-    virtual void SetTexture(CComPtr<IDirect3DTexture9> texture);
+    virtual void SetTexture(const CComPtr<IDirect3DTexture9>& texture);
     virtual void SetPosition(float x, float y);
     virtual void SetSize(float width, float height);
     virtual void SetColor(float r, float g, float b);
@@ -33,6 +33,7 @@ public:
     virtual float GetHeight() const;
     virtual float GetX() const;
     virtual float GetY() const;
+    virtual const CComPtr<IDirect3DTexture9>& GetTexture() const;
     virtual const Rect& GetTexCoords() const;
     virtual Vector3<float> GetColor() const;
     virtual float GetOpacity() const;
@@ -115,6 +116,10 @@ inline float Sprite::GetY() const {
 
 inline const Rect& Sprite::GetTexCoords() const {
     return m_desc.TexCoords;
+}
+
+inline const CComPtr<IDirect3DTexture9>& Sprite::GetTexture() const {
+    return m_texture;
 }
 
 inline Vector3<float> Sprite::GetColor() const {

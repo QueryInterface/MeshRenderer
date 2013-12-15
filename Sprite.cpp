@@ -109,7 +109,7 @@ void Sprite::SetTexture(const std::string& texturePath ) {
     D3DXCreateTextureFromFile(m_renderContext->Device, texturePath.c_str(), &m_texture);
 }
 
-void Sprite::SetTexture(CComPtr<IDirect3DTexture9> texture) {
+void Sprite::SetTexture(const CComPtr<IDirect3DTexture9>& texture) {
     m_texture = texture;
 }
 

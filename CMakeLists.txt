@@ -35,6 +35,8 @@ add_executable(MeshRenderer
 			  MathBasics.h
               main.cpp
               common.h
+			  Text.h
+			  Text.cpp
               Sprite.h
               Sprite.cpp
               RenderContext.h

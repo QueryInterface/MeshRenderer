@@ -10,7 +10,66 @@
 class RenderContext;
 
 class Text : public IRenderElement {
+    struct Iterator;
+    struct set_size;
+    struct set_pos;
+    struct set_color;
 public:
+    Text(RenderContext* renderContext, std::string& fontPath, float fontSize, IRenderable* parent);
+    ~Text();
+    virtual void SetPosition();
+    // IRenderElement
+    virtual uint32_t GetPixelWidth() const;
+    virtual uint32_t GetPixelHeight() const;
+    virtual float GetWidth() const;
+    virtual float GetHeight() const;
+    virtual float GetX() const;
+    virtual float GetY() const;
+    // Iteration functions
+    virtual Iterator Begin() const;
+    virtual Iterator End() const;
+    virtual Iterator Erase(Iterator& iter);
+    // Render functions
+    virtual void Clear();
+    virtual void Render();
+    // Operators
+    virtual Text& operator<<(const set_size& token);
+    //virtual Text& operator<<(const set_pos&  token);
+    virtual Text& operator<<(const set_color& token);
+    virtual Text& operator<<(const char* text);
+    virtual Text& operator<<(const std::string& text);
+public:
+    struct set_size {
+        set_size(uint32_t size) : m_size(size) {
+        }
+    private:
+        friend Text;
+        uint32_t m_size;
+    };
+    
+    //struct set_pos {
+    //    set_pos(float x, float y) : m_pos(x, y) {
+    //    }
+    //private:
+    //    friend Text;
+    //    Vector2<float> m_pos;
+    //};
+
+    struct set_color {
+        set_color(float r, float g, float b) : m_color(r, g, b) {
+        }
+    private:
+        friend Text;
+        Vector3<float> m_color;
+    };
+    
+    struct FontDesc {
+        FontDesc() : Size(0.0f), Position(0.0f, 0.0f), Color(1.0f, 1.0f, 1.0f) {}
+        float           Size;
+        Vector2<float>  Position;
+        Vector3<float>  Color;
+    };
+
     struct Iterator {
         Iterator(const Iterator& iter) {
             *this = iter;
@@ -29,6 +88,11 @@ public:
         char operator*() const {
             return m_iter->first;
         }
+
+        const FontDesc& operator@() const {
+            return m_iter->second;
+        }
+
         Iterator& operator++() {
             ++m_iter;
             return *this;
@@ -56,56 +120,48 @@ public:
     private:
         friend Text;
         Iterator();
-        Iterator(std::list<std::pair<char, shared_ptr<Sprite>>>::iterator& iter) : m_iter(iter) {};
-        std::list<std::pair<char, shared_ptr<Sprite>>>::iterator m_iter;
+        Iterator(list<pair<char, FontDesc>>::const_iterator& iter) : m_iter(iter) {};
+        list<pair<char, FontDesc>>::const_iterator m_iter;
     };
     
-public:
-    Text(RenderContext* renderContext, std::string& fontPath, IRenderable* parent);
-    ~Text();
-    virtual const Vector2<float>& GetCurrentPosition() const;
-    virtual const Vector3<float>& GetCurrentColor() const;
-    // Iteration functions
-    virtual Iterator Begin() const;
-    virtual Iterator End() const;
-    virtual Iterator Erase(Iterator& iter);
-    // Render functions
-    virtual void Clear();
-    virtual void Render();
-    // Operators
-    virtual Text& operator<<(const char* text);
-    virtual Text& operator<<(const std::string& text);
-
 private:
-    struct FontDesc {
-        FontDesc() : Size(12), Position(0.0f, 0.0f), Color(0.0f, 0.0f, 0.0f) {}
-        uint32_t        Size;
-        Vector2<float>  Position;
-        Vector3<float>  Color;
-    };
-    struct GlyphDesc {
-        GlyphDesc() : Width(0), Height(0) {}
-        uint32_t                    Width;
-        uint32_t                    Height;
-        CComPtr<IDirect3DTexture9>  Texture;
-    };
-    struct TextData {
-        list<pair<char, shared_ptr<Sprite>>> Text;
-        Rect                                 BoundingRect;
-    };
-
-    typedef std::map<uint8_t, GlyphDesc> GlyphDescs;
+    map<uint8_t, CComPtr<IDirect3DTexture9>> m_glyphTextures;
 
     IRenderable*    m_parent;
     RenderContext*  m_renderContext;
     FT_Face			m_fontFace;
     FontDesc        m_curFontDesc;
-    TextData        m_textData;
-    GlyphDescs      m_glyphDescs;
 
-    CComPtr<IDirect3DTexture9>   m_prerenderedText;
+    list<pair<char, FontDesc>>  m_text;
+    Rect                        m_boundingRect;
+    Sprite                      m_prerenderedText;
+    bool                        m_prerenderIsDirty;
 
-    const GlyphDesc* getGlyphDesc(uint8_t c);
+    const CComPtr<IDirect3DTexture9>& getGlyphTexture(uint8_t c);
     void processString(const char* text);
     void prerenderText();
 };
+
+inline uint32_t Text::GetPixelWidth() const {
+    m_prerenderedText.GetPixelWidth();
+}
+
+inline uint32_t Text::GetPixelHeight() const {
+    m_prerenderedText.GetPixelHeight();
+}
+
+inline float Text::GetWidth() const {
+    m_prerenderedText.GetWidth();
+}
+
+inline float Text::GetHeight() const {
+    m_prerenderedText.GetHeight();
+}
+
+inline float Text::GetX() const {
+    m_prerenderedText.GetX();
+}
+
+inline float Text::GetY() const {
+    m_prerenderedText.GetY();
+}
