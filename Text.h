@@ -9,36 +9,75 @@
 
 class RenderContext;
 
+class Letter {
+public:
+    char                    GetLetter() const;
+    uint32_t                GetSize() const;
+    uint32_t                GetOffsetX() const;
+    const Vector3<float>&   GetColor() const;
+private:
+    friend class Text;
+    friend class Line;
+
+    char                    m_letter;
+    uint32_t                m_size;
+    uint32_t                m_offsetX;
+    Vector3<float>          m_color;
+    shared_ptr<Sprite>      m_sprite;
+    Line*                   m_parentLine;
+};
+
+class Line {
+    typedef Iterator<list<Letter>::const_iterator, Letter> LetterIterator;
+public:
+    uint32_t        GetOffsetY() const;
+    LetterIterator  Begin() const;
+    LetterIterator  End() const;
+    void            Erase(const LetterIterator& iterator);
+    void            Insert(const LetterIterator& iterator, const Text& text);
+    void            Insert(const LetterIterator& iterator, const std::string& text);
+    void            Insert(const LetterIterator& Iterator, const char* text);
+private:
+    friend class Text;
+    Line(Text* parent);
+
+    Text*           m_parent;
+    uint32_t        m_offsetY;    //< Y offset from the left upper corner
+    list<Letter>    m_letters;
+};
+
 class Text : public IRenderElement {
-    struct Iterator;
+    typedef Iterator<list<Line>::const_iterator, Line> LineIterator;
+public:
     struct set_size;
     struct set_pos;
     struct set_color;
 public:
     Text(RenderContext* renderContext, std::string& fontPath, float fontSize, IRenderable* parent);
     ~Text();
-    virtual void SetPosition();
+    virtual void SetPosition(uint32_t x, uint32_t y);
+    virtual void SetLineInterval(uint32_t interval);
     // IRenderElement
-    virtual uint32_t GetPixelWidth() const;
-    virtual uint32_t GetPixelHeight() const;
-    virtual float GetWidth() const;
-    virtual float GetHeight() const;
-    virtual float GetX() const;
-    virtual float GetY() const;
-    // Iteration functions
-    virtual Iterator Begin() const;
-    virtual Iterator End() const;
-    virtual Iterator Erase(Iterator& iter);
+    virtual uint32_t GetWidth() const;
+    virtual uint32_t GetHeight() const;
+    virtual int32_t GetX() const;
+    virtual int32_t GetY() const;
+    // Access/modification functions
+    LineIterator Begin();
+    LineIterator End();
+    void Erase(const LineIterator& iterator);
+    void Insert(const LineIterator& iterator, const Text& text);
+    void Insert(const LineIterator& iterator, const std::string& text);
+    void Insert(const LineIterator& Iterator, const char* text);
     // Render functions
     virtual void Clear();
     virtual void Render();
     // Operators
     virtual Text& operator<<(const set_size& token);
-    //virtual Text& operator<<(const set_pos&  token);
     virtual Text& operator<<(const set_color& token);
     virtual Text& operator<<(const char* text);
     virtual Text& operator<<(const std::string& text);
-public:
+
     struct set_size {
         set_size(uint32_t size) : m_size(size) {
         }
@@ -46,14 +85,6 @@ public:
         friend Text;
         uint32_t m_size;
     };
-    
-    //struct set_pos {
-    //    set_pos(float x, float y) : m_pos(x, y) {
-    //    }
-    //private:
-    //    friend Text;
-    //    Vector2<float> m_pos;
-    //};
 
     struct set_color {
         set_color(float r, float g, float b) : m_color(r, g, b) {
@@ -63,105 +94,93 @@ public:
         Vector3<float> m_color;
     };
     
-    struct FontDesc {
-        FontDesc() : Size(0.0f), Position(0.0f, 0.0f), Color(1.0f, 1.0f, 1.0f) {}
-        float           Size;
-        Vector2<float>  Position;
-        Vector3<float>  Color;
-    };
-
-    struct Iterator {
-        Iterator(const Iterator& iter) {
-            *this = iter;
-        }
-        Iterator(const Iterator&& iter) {
-            *this = std::move(iter);
-        }
-        Iterator& operator=(const Iterator& iter) {
-            m_iter = iter.m_iter;
-            return *this;
-        }
-        Iterator& operator=(const Iterator&& iter) {
-            m_iter = std::move(iter.m_iter);
-            return *this;
-        }
-        char operator*() const {
-            return m_iter->first;
-        }
-
-        const FontDesc& operator@() const {
-            return m_iter->second;
-        }
-
-        Iterator& operator++() {
-            ++m_iter;
-            return *this;
-        }
-        Iterator operator++(int) {
-            Iterator i = *this;
-            operator++();
-            return i;
-        }
-        Iterator& operator--() {
-            --m_iter;
-            return *this;
-        }
-        Iterator operator--(int) {
-            Iterator i = *this;
-            operator--();
-            return i;
-        }
-        bool operator==(const Iterator& arg) const {
-            return m_iter == arg.m_iter;
-        }
-        bool operator!=(const Iterator& arg) const {
-            return m_iter != arg.m_iter;
-        }
-    private:
-        friend Text;
-        Iterator();
-        Iterator(list<pair<char, FontDesc>>::const_iterator& iter) : m_iter(iter) {};
-        list<pair<char, FontDesc>>::const_iterator m_iter;
-    };
-    
 private:
-    map<uint8_t, CComPtr<IDirect3DTexture9>> m_glyphTextures;
+    struct GlyphDesc {
+        CComPtr<IDirect3DTexture9> Texture;
+        uint32_t Width;
+        uint32_t Height;
+        uint32_t Top;
+        uint32_t Left;
+        uint32_t Advance;
+    };
 
-    IRenderable*    m_parent;
-    RenderContext*  m_renderContext;
-    FT_Face			m_fontFace;
-    FontDesc        m_curFontDesc;
+    RenderContext*      m_renderContext;
+    FT_Face			    m_fontFace;
+    Letter              m_curLetter;
+    Line                m_curLine;
+    Vector2<int32_t>    m_textPosition;
+    uint32_t            m_lineInterval;
+    list<Line>          m_text;
+    bool                m_textAdjusted;
 
-    list<pair<char, FontDesc>>  m_text;
-    Rect                        m_boundingRect;
-    Sprite                      m_prerenderedText;
-    bool                        m_prerenderIsDirty;
+    Rect                m_boundingRect;
+    Sprite              m_prerenderedText;
+    bool                m_prerendered;
 
-    const CComPtr<IDirect3DTexture9>& getGlyphTexture(uint8_t c);
+    bool getGlyphDesc(uint8_t c, GlyphDesc& glyphDesc);
     void processString(const char* text);
+    void adjustText();
     void prerenderText();
 };
 
-inline uint32_t Text::GetPixelWidth() const {
-    m_prerenderedText.GetPixelWidth();
+/// Letter
+inline char Letter::GetLetter() const {
+    return m_letter;
 }
 
-inline uint32_t Text::GetPixelHeight() const {
-    m_prerenderedText.GetPixelHeight();
+inline uint32_t Letter::GetSize() const {
+    return m_size;
 }
 
-inline float Text::GetWidth() const {
-    m_prerenderedText.GetWidth();
+inline uint32_t Letter::GetOffsetX() const {
+    return m_offsetX;
 }
 
-inline float Text::GetHeight() const {
-    m_prerenderedText.GetHeight();
+inline const Vector3<float>& Letter::GetColor() const {
+    return m_color;
 }
 
-inline float Text::GetX() const {
-    m_prerenderedText.GetX();
+/// Line
+inline uint32_t Line::GetOffsetY() const {
+    return m_offsetY;
 }
 
-inline float Text::GetY() const {
-    m_prerenderedText.GetY();
+inline Line::LetterIterator Line::Begin() const {
+    return m_letters.begin();
+}
+
+inline Line::LetterIterator Line::End() const {
+    return m_letters.end();
+}
+
+/// Text
+inline void Text::SetPosition(uint32_t x, uint32_t y) {
+    m_textPosition.x = x;
+    m_textPosition.y = y;
+}
+
+inline uint32_t Text::GetWidth() const {
+    return m_prerenderedText.GetWidth();
+}
+
+inline uint32_t Text::GetHeight() const {
+    return m_prerenderedText.GetHeight();
+}
+
+inline int32_t Text::GetX() const {
+    return m_prerenderedText.GetX();
+}
+
+inline int32_t Text::GetY() const {
+    return m_prerenderedText.GetY();
+}
+
+inline Text::LineIterator Text::Begin() {
+    if (!m_textAdjusted) adjustText();
+    return m_text.begin();
+}
+
+inline Text::LineIterator Text::End() {
+    if (!m_textAdjusted) adjustText();
+    return m_text.end();
 }

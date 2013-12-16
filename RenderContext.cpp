@@ -7,7 +7,7 @@ RenderTarget::RenderTarget(RenderContext* renderContext, uint32_t width, uint32_
     , m_height(height)
     , m_renderContext(renderContext) {
     CComPtr<IDirect3DTexture9> texture;
-    CHECK(m_renderContext->Device->CreateTexture(width, height, 1, D3DUSAGE_RENDERTARGET, format, D3DPOOL_DEFAULT, &texture, NULL), "Failed to create render target");
+    CHECK(m_renderContext->GetDevice()->CreateTexture(width, height, 1, D3DUSAGE_RENDERTARGET, format, D3DPOOL_DEFAULT, &texture, NULL), "Failed to create render target");
 	CHECK(texture->GetSurfaceLevel(0, &m_surface), "Failed to get font surface level");
 }
 
@@ -23,7 +23,8 @@ IDirect3DSurface9** RenderTarget::operator&() {
 }
 
 void RenderTarget::MakeCurrent() {
-    CHECK(m_renderContext->Device->SetRenderTarget(0, m_surface), "Failed to set render target");
+    CHECK(m_renderContext->GetDevice()->SetRenderTarget(0, m_surface), "Failed to set render target");
+    m_renderContext->m_currentRT = *this;
 }
 
 ////////////////////////////////////////
@@ -43,13 +44,13 @@ RenderTarget RenderContext::CreateRenderTarget(uint32_t width, uint32_t height, 
 }
 
 void RenderContext::Clear() {
-	if (Device)
-		Device->Clear(0, NULL, D3DCLEAR_TARGET, D3DCOLOR_RGBA(255, 0, 0, 255), 1.0, 0);
+	if (m_device)
+		m_device->Clear(0, NULL, D3DCLEAR_TARGET, D3DCOLOR_RGBA(255, 0, 0, 255), 1.0, 0);
 }
 
 void RenderContext::Present() {
-	if (Device)
-		Device->Present(NULL, NULL, NULL, NULL);
+	if (m_device)
+		m_device->Present(NULL, NULL, NULL, NULL);
 }
 
 void RenderContext::EventSubscribe_KeyPress(IKeyPressCallback* callback) {
@@ -93,19 +94,19 @@ void RenderContext::initWindow() {
     RegisterClassEx( &wc );
 
     // Create the application's window
-    Window = CreateWindow("MeshRenderer", "MeshRenderer",
+    m_window = CreateWindow("MeshRenderer", "MeshRenderer",
                               WS_OVERLAPPEDWINDOW, 0, 0, m_width, m_height,
                               NULL, NULL, wc.hInstance, (void*)this);
-    if (!Window) {
+    if (!m_window) {
         throw std::runtime_error("Failed to create window");
     }
-	SetWindowPos(Window,0,0,0,m_width, m_height, SWP_NOMOVE|SWP_NOZORDER|SWP_NOACTIVATE);
-	ShowWindow(Window, true);
+	SetWindowPos(m_window,0,0,0,m_width, m_height, SWP_NOMOVE|SWP_NOZORDER|SWP_NOACTIVATE);
+	ShowWindow(m_window, true);
 }
 
 void RenderContext::initD3D() {
-    D3D = Direct3DCreate9(D3D_SDK_VERSION);
-    if(!D3D) {
+    m_d3d = Direct3DCreate9(D3D_SDK_VERSION);
+    if(!m_d3d) {
 		std::runtime_error("Failed to create Direct3D");
 	}
 
@@ -115,10 +116,14 @@ void RenderContext::initD3D() {
     d3dpp.SwapEffect = D3DSWAPEFFECT_DISCARD;
     d3dpp.BackBufferFormat = D3DFMT_A8R8G8B8;
 
-    CHECK(D3D->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, Window, D3DCREATE_SOFTWARE_VERTEXPROCESSING, 
-                            &d3dpp, &Device), "Failed to create device");
-	CHECK(Device->GetRenderTarget(0, &DefaultRT), "Failed to save default RT");
-	Device->SetRenderState(D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_ALPHA);
+    CHECK(m_d3d->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, m_window, D3DCREATE_SOFTWARE_VERTEXPROCESSING, 
+                            &d3dpp, &m_device), "Failed to create device");
+    m_defaultRT.m_width = GetWindowWidth();
+    m_defaultRT.m_height = GetWindowHeight();
+    m_defaultRT.m_renderContext = this;
+    CHECK(m_device->GetRenderTarget(0, &m_defaultRT), "Failed to save default RT");
+	m_device->SetRenderState(D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_ALPHA);
+    m_currentRT = m_defaultRT;
 }
 
 void RenderContext::onMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {

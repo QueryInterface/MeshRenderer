@@ -42,9 +42,8 @@ static const std::string g_pixelShaderSource =
         return output;                                      \n\
     }                                                       \n";
 
-Sprite::Sprite(RenderContext* renderContext, IRenderDesc* parent)
+Sprite::Sprite(RenderContext* renderContext)
     : m_renderContext(renderContext)
-    , m_parent(parent)
     , m_color(1.0f, 1.0f, 1.0f, 1.0f)
     , m_visible(true) {
     if (!m_renderContext) {
@@ -76,9 +75,10 @@ Sprite::Sprite(RenderContext* renderContext, IRenderDesc* parent)
         {0, 16, D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD,  0},
         D3DDECL_END()
     };
-    CHECK(m_renderContext->Device->CreateVertexDeclaration(elements, &m_vertexDeclaration), "Failed to create vertex declaration");
+    CComPtr<IDirect3DDevice9> device = m_renderContext->GetDevice();
+    CHECK(device->CreateVertexDeclaration(elements, &m_vertexDeclaration), "Failed to create vertex declaration");
     // Create vertex buffer
-    CHECK(m_renderContext->Device->CreateVertexBuffer(sizeof(m_vertices), 0, 0, D3DPOOL_DEFAULT, &m_vertexBuffer, NULL), "Failed to create vertex buffer");
+    CHECK(device->CreateVertexBuffer(sizeof(m_vertices), 0, 0, D3DPOOL_DEFAULT, &m_vertexBuffer, NULL), "Failed to create vertex buffer");
     void* pData = NULL;
     CHECK(m_vertexBuffer->Lock(0, sizeof(m_vertices), &pData, 0), "Failed to lock vertex bufffer");
     memcpy(pData, m_vertices, sizeof(m_vertices));
@@ -86,9 +86,9 @@ Sprite::Sprite(RenderContext* renderContext, IRenderDesc* parent)
     // Create shaders
     CComPtr<ID3DXBuffer> shaderBinary;
     shaderBinary = compileShader(g_vertexShaderSource, "vs_main", "vs_2_0", &m_vsConstantTable);
-    CHECK(m_renderContext->Device->CreateVertexShader((DWORD*)shaderBinary->GetBufferPointer(), &m_vertexShader), "Failed to create vertex shader");
+    CHECK(device->CreateVertexShader((DWORD*)shaderBinary->GetBufferPointer(), &m_vertexShader), "Failed to create vertex shader");
     shaderBinary = compileShader(g_pixelShaderSource, "ps_main", "ps_2_0", &m_psConstantTable);
-    CHECK(m_renderContext->Device->CreatePixelShader((DWORD*)shaderBinary->GetBufferPointer(), &m_pixelShader), "Failed to create pixel shader");
+    CHECK(device->CreatePixelShader((DWORD*)shaderBinary->GetBufferPointer(), &m_pixelShader), "Failed to create pixel shader");
     // Set transformation matrix to identity
     D3DXMatrixIdentity(&m_scaleMatrix);
     D3DXMatrixIdentity(&m_translateMatrix);
@@ -99,30 +99,21 @@ Sprite::~Sprite() {
 
 }
 
-void Sprite::SetParent(IRenderDesc* parent) {
-    m_parent = parent;
-    adjustSize();
-    adjustPosition();
-}
-
 void Sprite::SetTexture(const std::string& texturePath ) {
-    D3DXCreateTextureFromFile(m_renderContext->Device, texturePath.c_str(), &m_texture);
+    D3DXCreateTextureFromFile(m_renderContext->GetDevice(), texturePath.c_str(), &m_texture);
 }
 
 void Sprite::SetTexture(const CComPtr<IDirect3DTexture9>& texture) {
     m_texture = texture;
 }
 
-void Sprite::SetPosition(float x, float y) {
+void Sprite::SetPosition(int32_t x, int32_t y) {
     m_desc.PosX = x;
     m_desc.PosY = y;
     adjustPosition();
 }
 
-void Sprite::SetSize(float width, float height) {
-    if (width < 0.0f || height  < 0.0f) {
-        throw std::runtime_error("Invalid size values");
-    }
+void Sprite::SetSize(uint32_t width, uint32_t height) {
     m_desc.Width = width;
     m_desc.Height = height;
     adjustSize();
@@ -157,10 +148,10 @@ void Sprite::SetTextureCoords(Rect coords) {
 
 void Sprite::Render() {
     if (!m_visible) return;
-    CComPtr<IDirect3DDevice9> device = m_renderContext->Device;
+    CComPtr<IDirect3DDevice9>& device = m_renderContext->GetDevice();
     device->BeginScene();
-    m_vsConstantTable->SetMatrix(m_renderContext->Device, "g_matrix", &m_resultMatrix);
-    m_psConstantTable->SetFloatArray(m_renderContext->Device, "Color", (float*)&m_color, 4);
+    m_vsConstantTable->SetMatrix(device, "g_matrix", &m_resultMatrix);
+    m_psConstantTable->SetFloatArray(device, "Color", (float*)&m_color, 4);
     device->SetVertexShader(m_vertexShader);
     device->SetPixelShader(m_pixelShader);
     device->SetTexture(0, m_texture);
@@ -191,23 +182,21 @@ ID3DXBuffer* Sprite::compileShader(const std::string& shaderSource, const std::s
 }
 
 void Sprite::adjustSize() {
-    float parentWidth = m_parent ? m_parent->GetWidth() : 1.0f;
-    float parentHeight = m_parent ? m_parent->GetHeight() : 1.0f;
-    float w = 2.0f * m_desc.Width * parentWidth;
-    float h = 2.0f * m_desc.Height * parentHeight;
+    uint32_t rtWidth = m_renderContext->GetCurrentRT().GetWidth();
+    uint32_t rtHeight = m_renderContext->GetCurrentRT().GetHeight();
+    float w = 2.0f * (float)m_desc.Width / rtWidth;
+    float h = 2.0f * (float)m_desc.Height / rtHeight;
     D3DXMatrixScaling(&m_scaleMatrix, w, h, 1.0f);
     D3DXMatrixMultiply(&m_resultMatrix, &m_scaleMatrix, &m_translateMatrix);
-    CHECK(m_vsConstantTable->SetMatrix(m_renderContext->Device, "g_matrix", &m_resultMatrix), "Failed to set g_matrix variable in VS shader");
+    CHECK(m_vsConstantTable->SetMatrix(m_renderContext->GetDevice(), "g_matrix", &m_resultMatrix), "Failed to set g_matrix variable in VS shader");
 }
 
 void Sprite::adjustPosition() {
-    float parentWidth = m_parent ? m_parent->GetWidth() : 1.0f;
-    float parentHeight = m_parent ? m_parent->GetHeight() : 1.0f;
-    float parentX = m_parent ? m_parent->GetX() : 0.0f;
-    float parentY = m_parent ? m_parent->GetY() : 0.0f;
-    float x_shift = -1.0f + 2.0f * (m_desc.PosX * parentWidth + parentX);
-    float y_shift = 1.0f - 2.0f * (m_desc.PosY * parentHeight + parentY);
+    uint32_t rtWidth = m_renderContext->GetCurrentRT().GetWidth();
+    uint32_t rtHeight = m_renderContext->GetCurrentRT().GetHeight();
+    float x_shift = -1.0f + 2.0f * (float)m_desc.PosX / rtWidth;
+    float y_shift = 1.0f - 2.0f * (float)m_desc.PosY / rtHeight;
     D3DXMatrixTranslation(&m_translateMatrix, x_shift, y_shift, 0.0f);
     D3DXMatrixMultiply(&m_resultMatrix, &m_scaleMatrix, &m_translateMatrix);
-    CHECK(m_vsConstantTable->SetMatrix(m_renderContext->Device, "g_matrix", &m_resultMatrix), "Failed to set g_matrix variable in VS shader");
+    CHECK(m_vsConstantTable->SetMatrix(m_renderContext->GetDevice(), "g_matrix", &m_resultMatrix), "Failed to set g_matrix variable in VS shader");
 }

@@ -10,12 +10,10 @@ struct IRenderable {
 };
 
 struct IRenderDesc {
-    virtual uint32_t GetPixelWidth() const = 0;
-    virtual uint32_t GetPixelHeight() const = 0;
-    virtual float GetWidth() const = 0;
-    virtual float GetHeight() const = 0;
-    virtual float GetX() const = 0;
-    virtual float GetY() const = 0;
+    virtual uint32_t GetWidth() const = 0;
+    virtual uint32_t GetHeight() const = 0;
+    virtual int32_t GetX() const = 0;
+    virtual int32_t GetY() const = 0;
 };
 
 struct IRenderElement 

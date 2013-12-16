@@ -15,39 +15,35 @@ struct Rect {
 
 class Sprite : public IRenderElement {
 public:
-    Sprite(RenderContext* renderContext, IRenderDesc* parent = NULL);
+    Sprite(RenderContext* renderContext);
     virtual ~Sprite();
 
-    virtual void SetParent(IRenderDesc* parent);
     virtual void SetTexture(const std::string& texturePath);
     virtual void SetTexture(const CComPtr<IDirect3DTexture9>& texture);
-    virtual void SetPosition(float x, float y);
-    virtual void SetSize(float width, float height);
+    virtual void SetPosition(int32_t x, int32_t y);
+    virtual void SetSize(uint32_t width, uint32_t height);
     virtual void SetColor(float r, float g, float b);
     virtual void SetOpacity(float alpha);
     virtual void SetTextureCoords(Rect coords);
 
-    virtual uint32_t GetPixelWidth() const;
-    virtual uint32_t GetPixelHeight() const;
-    virtual float GetWidth() const;
-    virtual float GetHeight() const;
-    virtual float GetX() const;
-    virtual float GetY() const;
+    virtual uint32_t GetWidth() const;
+    virtual uint32_t GetHeight() const;
+    virtual int32_t GetX() const;
+    virtual int32_t GetY() const;
     virtual const CComPtr<IDirect3DTexture9>& GetTexture() const;
     virtual const Rect& GetTexCoords() const;
     virtual Vector3<float> GetColor() const;
     virtual float GetOpacity() const;
-    virtual IRenderDesc* GetParent() const;
 
     virtual void Show(bool show);
     virtual void Render();
 
 private:
     struct Desc {
-        float PosX;
-        float PosY;
-        float Width;
-        float Height;
+        int32_t PosX;
+        int32_t PosY;
+        uint32_t Width;
+        uint32_t Height;
         Rect  TexCoords;
     };
     struct Vertex {
@@ -56,7 +52,6 @@ private:
     };
 
     Desc                                    m_desc;
-    IRenderDesc*                            m_parent;
     RenderContext*							m_renderContext;
     bool									m_visible;
 
@@ -80,37 +75,19 @@ private:
     void adjustPosition();
 };
 
-inline uint32_t Sprite::GetPixelWidth() const {
-    if (m_parent) {
-        return (uint32_t)(m_parent->GetPixelWidth() * GetWidth());
-    }
-    else {
-        return (uint32_t)(m_renderContext->GetWindowWidth() * GetWidth());
-    }
-}
-
-inline uint32_t Sprite::GetPixelHeight() const {
-    if (m_parent) {
-        return (uint32_t)(m_parent->GetPixelHeight() * GetHeight());
-    }
-    else {
-        return (uint32_t)(m_renderContext->GetWindowHeight() * GetHeight());
-    }
-}
-
-inline float Sprite::GetWidth() const {
+inline uint32_t Sprite::GetWidth() const {
     return m_desc.Width;
 }
 
-inline float Sprite::GetHeight() const {
+inline uint32_t Sprite::GetHeight() const {
     return m_desc.Height;
 }
 
-inline float Sprite::GetX() const {
+inline int32_t Sprite::GetX() const {
     return m_desc.PosX;
 }
 
-inline float Sprite::GetY() const {
+inline int32_t Sprite::GetY() const {
     return m_desc.PosY;
 }
 
@@ -128,8 +105,4 @@ inline Vector3<float> Sprite::GetColor() const {
 
 inline float Sprite::GetOpacity() const {
     return m_color.w;
-}
-
-inline IRenderDesc* Sprite::GetParent() const {
-    return m_parent;
 }

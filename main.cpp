@@ -5,6 +5,8 @@
 //#include "Console.h"
 #include "Utils/Utils.h"
 
+#define SPRITE_SIZE 64
+
 int main() {
     try {
         std::string mediaPath = UTILS::GetMediaFolder();
@@ -22,15 +24,15 @@ int main() {
         Sprite sprite2(&renderContext);
         Sprite sprite3(&renderContext);
         
-        sprite0.SetSize(0.4f, 0.3f);
-        sprite1.SetSize(0.4f, 0.3f);
-        sprite2.SetSize(0.4f, 0.3f);
-        sprite3.SetSize(0.4f, 0.3f);
+        sprite0.SetSize(SPRITE_SIZE, SPRITE_SIZE);
+        sprite1.SetSize(SPRITE_SIZE, SPRITE_SIZE);
+        sprite2.SetSize(SPRITE_SIZE, SPRITE_SIZE);
+        sprite3.SetSize(SPRITE_SIZE, SPRITE_SIZE);
         
-        sprite0.SetPosition(0.0f, 0.0f);
-        sprite1.SetPosition(0.6f, 0.0f);
-        sprite2.SetPosition(0.0f, 0.7f);
-        sprite3.SetPosition(0.6f, 0.7f);
+        sprite0.SetPosition(0, 0);
+        sprite1.SetPosition(renderContext.GetWindowWidth() - SPRITE_SIZE, 0);
+        sprite2.SetPosition(0, renderContext.GetWindowHeight() - SPRITE_SIZE);
+        sprite3.SetPosition(renderContext.GetWindowWidth() - SPRITE_SIZE, renderContext.GetWindowHeight() - SPRITE_SIZE);
 
         sprite0.SetTexture(mediaPath + "Textures/Smile.png");
         sprite1.SetTexture(mediaPath + "Textures/Smile.png");
@@ -45,26 +47,18 @@ int main() {
             renderContext.Clear();
             if (direction) {
                 opacity -= 0.01f;
-                sprite0.SetPosition(sprite0.GetX() + 0.01f, sprite0.GetY() + 0.01f);
-                sprite3.SetPosition(sprite3.GetX() - 0.01f, sprite3.GetY() - 0.01f);
+                sprite0.SetPosition(sprite0.GetX() + 1, sprite0.GetY() + 1);
+                sprite3.SetPosition(sprite3.GetX() - 1, sprite3.GetY() - 1);
                 if (opacity <= 0.0f) {
                     direction = false;
-                    sprite2.SetParent(NULL);
-                    sprite1.SetParent(&sprite2);
-                    sprite0.SetParent(&sprite2);
-                    sprite3.SetParent(&sprite2);
                 }
             }
             else {
                 opacity += 0.01f;
-                sprite0.SetPosition(sprite0.GetX() - 0.01f, sprite0.GetY() - 0.01f);
-                sprite3.SetPosition(sprite3.GetX() + 0.01f, sprite3.GetY() + 0.01f);
+                sprite0.SetPosition(sprite0.GetX() - 1, sprite0.GetY() - 1);
+                sprite3.SetPosition(sprite3.GetX() + 1, sprite3.GetY() + 1);
                 if (opacity >= 1.0f) {
                     direction = true;
-                    sprite1.SetParent(NULL);
-                    sprite2.SetParent(&sprite1);
-                    sprite0.SetParent(NULL);
-                    sprite3.SetParent(NULL);
                 }
             }
             sprite0.SetOpacity(opacity);

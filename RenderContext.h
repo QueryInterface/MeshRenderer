@@ -17,18 +17,16 @@ struct IMouseCallback {
 class RenderTarget : public IRenderDesc {
 public:
     virtual void MakeCurrent();
-    virtual uint32_t GetPixelWidth() const;
-    virtual uint32_t GetPixelHeight() const;
-    virtual float GetWidth() const;
-    virtual float GetHeight() const;
-    virtual float GetX() const;
-    virtual float GetY() const;
+    virtual uint32_t GetWidth() const;
+    virtual uint32_t GetHeight() const;
+    virtual int32_t GetX() const;
+    virtual int32_t GetY() const;
 private:
     friend class RenderContext;
-    uint32_t                   m_width;
-    uint32_t                   m_height;
-    CComPtr<IDirect3DSurface9> m_surface;
-    RenderContext* m_renderContext;
+    uint32_t                    m_width;
+    uint32_t                    m_height;
+    CComPtr<IDirect3DSurface9>  m_surface;
+    RenderContext*              m_renderContext;
 
     RenderTarget() {}
     RenderTarget(CComPtr<IDirect3DSurface9> rtSurface);
@@ -37,14 +35,16 @@ private:
 };
 
 class RenderContext {
+    friend class RenderTarget;
 public:
-	HWND						Window;
-	CComPtr<IDirect3D9>			D3D;
-	CComPtr<IDirect3DDevice9>	Device;
-    RenderTarget                DefaultRT;
-
 	RenderContext(const RenderContextSetup& setup);
 	~RenderContext();
+    // Getters
+    HWND                        GetWindow() const;
+    CComPtr<IDirect3D9>	        GetD3D() const;
+    CComPtr<IDirect3DDevice9>   GetDevice() const;
+    RenderTarget&               GetDefaultRT();
+    RenderTarget&               GetCurrentRT();
 	
     RenderTarget CreateRenderTarget(uint32_t width, uint32_t height, D3DFORMAT format);
 
@@ -60,6 +60,12 @@ public:
 	bool ProcessMessage();
 
 private:
+	HWND						m_window;
+	CComPtr<IDirect3D9>			m_d3d;
+	CComPtr<IDirect3DDevice9>	m_device;
+    RenderTarget                m_defaultRT;
+    RenderTarget                m_currentRT;
+
 	uint32_t m_width;
 	uint32_t m_height;
 	std::set<WPARAM> m_pressedKeys;
@@ -74,26 +80,38 @@ private:
 	static LRESULT WINAPI msgProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 };
 
-inline uint32_t RenderTarget::GetPixelWidth() const {
+inline uint32_t RenderTarget::GetWidth() const {
     return m_width;
 }
 
-inline uint32_t RenderTarget::GetPixelHeight() const {
+inline uint32_t RenderTarget::GetHeight() const {
     return m_height;
 }
 
-inline float RenderTarget::GetWidth() const {
-    return 1.0f;
+inline int32_t RenderTarget::GetX() const {
+    return 0;
 }
 
-inline float RenderTarget::GetHeight() const {
-    return 1.0f;
+inline int32_t RenderTarget::GetY() const {
+    return 0;
 }
 
-inline float RenderTarget::GetX() const {
-    return 0.0f;
+inline HWND RenderContext::GetWindow() const {
+    return m_window;
 }
 
-inline float RenderTarget::GetY() const {
-    return 0.0f;
+inline CComPtr<IDirect3D9> RenderContext::GetD3D() const {
+    return m_d3d;
+}
+
+inline CComPtr<IDirect3DDevice9> RenderContext::GetDevice() const {
+    return m_device;
+}
+
+inline RenderTarget& RenderContext::GetDefaultRT() {
+    return m_defaultRT;
+}
+
+inline RenderTarget& RenderContext::GetCurrentRT() {
+    return m_currentRT;
 }

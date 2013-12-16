@@ -3,13 +3,21 @@
 #include "Sprite.h"
 #include <direct.h>
 
-#define MAX_FONT_SIZE 64
+/// Letter
 
+/// Line
+Line::Line(Text* parent) : m_parent(parent) {
+}
+
+/// Text
 Text::Text(RenderContext* renderContext, std::string& fontPath, float fontSize, IRenderable* parent) 
     : m_renderContext(renderContext)
-    , m_parent(parent)
     , m_prerenderedText(renderContext)
-    , m_prerenderIsDirty(true) {
+    , m_prerendered(true)
+    , m_textAdjusted(false)
+    , m_textPosition(0, 0)
+    , m_lineInterval(0)
+    , m_curLine(this) {
     FT_Library fontLibrary;
     if(FT_Init_FreeType(&fontLibrary)) {
         throw std::runtime_error("Failed to create FreeType object");
@@ -17,138 +25,148 @@ Text::Text(RenderContext* renderContext, std::string& fontPath, float fontSize, 
     if(FT_New_Face(fontLibrary, fontPath.c_str(), 0, &m_fontFace)) {
         throw std::runtime_error("Failed to create FreeType font face");
     }
-    FT_Set_Pixel_Sizes(m_fontFace, 0, MAX_FONT_SIZE);
+    // Set default values for font rendering
+    m_curLetter.m_color = Vector3<float>(1.0f, 1.0f, 1.0f);
+    m_curLetter.m_letter = 0;
+    m_curLetter.m_offsetX = 0;
+    m_curLetter.m_size = 12;
+    m_curLine.m_offsetY = 0;
+    FT_Set_Pixel_Sizes(m_fontFace, 0, m_curLetter.m_size);
 }
 
 Text::~Text() {
 }
 
+void Text::SetLineInterval(uint32_t interval) {
+    m_lineInterval = interval;
+    if (m_textAdjusted) m_textAdjusted = false;
+}
+
 void Text::Clear() {
     m_text.clear();	
+    m_prerendered = false;
 }
 
 void Text::Render() {
-    if (m_prerenderIsDirty) {
+    if (!m_textAdjusted) {
+        adjustText();
+    }
+    if (!m_prerendered) {
         prerenderText();
     }
     m_prerenderedText.Render();
 }
 
-inline Text::Iterator Text::Begin() const {
-    return m_text.begin();
-}
-
-inline Text::Iterator Text::End() const {
-    return m_text.end();
-}
-
-inline Text::Iterator Text::Erase(Iterator& iter) {
-    // TODO: Optimize so erase is performed with constant time
-    Iterator ret = m_text.erase(iter.m_iter);
-    m_prerenderIsDirty = true;
-    return ret;
-}
-
 Text& Text::operator<<(const set_size& token) {
-    m_curFontDesc.Size = token.m_size;
-    FT_Set_Pixel_Sizes(m_fontFace, 0, m_curFontDesc.Size);
+    m_curLetter.m_size = token.m_size;
+    FT_Set_Pixel_Sizes(m_fontFace, 0, m_curLetter.m_size);
     return *this;
 }
 
-//Text& Text::operator<<(const set_pos&  token) {
-//    m_curFontDesc.Position = std::move(token.m_pos);
-//    return *this;
-//}
-
 Text& Text::operator<<(const set_color& token) {
-    m_curFontDesc.Color = std::move(token.m_color);
+    m_curLetter.m_color = std::move(token.m_color);
     return *this;
 }
 
 Text& Text::operator<<(const char* text) {
-    processString(text);
+    if(text) {
+        processString(text);
+        if (m_prerendered) m_prerendered = false;
+        if (m_textAdjusted) m_textAdjusted = false;
+    }
     return *this;
 }
 
 Text& Text::operator<<(const std::string& text) {
-    processString(text.c_str());
+    if (!text.empty()) {
+        processString(text.c_str());
+        if (m_prerendered) m_prerendered = false;
+        if (m_textAdjusted) m_textAdjusted = false;
+    }
     return *this;
 }
 
-const CComPtr<IDirect3DTexture9>& Text::getGlyphTexture(uint8_t c) {
-    auto glyphTextureIter = m_glyphTextures.find(c);
-    if (glyphTextureIter != m_glyphTextures.end()) {
-        return glyphTextureIter->second;
-    }
-    else {
-        if (!FT_Load_Char(m_fontFace, c, FT_LOAD_RENDER)) {
-            CComPtr<IDirect3DTexture9>& glyphTexture = m_glyphTextures[c];
-            uint32_t width = m_fontFace->glyph->bitmap.width;
-            uint32_t height = m_fontFace->glyph->bitmap.rows;
-            CHECK(m_renderContext->Device->CreateTexture(width, height, 1, D3DUSAGE_DYNAMIC, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &glyphTexture, NULL), "Failed to create glyph texture");
+bool Text::getGlyphDesc(uint8_t c, GlyphDesc& glyphDesc) {
+    if (!FT_Load_Char(m_fontFace, c, FT_LOAD_RENDER)) {
+        glyphDesc.Width = m_fontFace->glyph->bitmap.width;
+        glyphDesc.Height = m_fontFace->glyph->bitmap.rows;
+        glyphDesc.Advance = m_fontFace->glyph->advance.x >> 6;
+        glyphDesc.Left = m_fontFace->glyph->bitmap_left;
+        glyphDesc.Top = m_fontFace->glyph->bitmap_top;
+        // Skip texture creation for non-visible symbols
+        if (glyphDesc.Width && glyphDesc.Height) {
+            CHECK(m_renderContext->GetDevice()->CreateTexture(glyphDesc.Width, glyphDesc.Height, 1, D3DUSAGE_DYNAMIC, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &glyphDesc.Texture, NULL), "Failed to create glyph texture");
             D3DLOCKED_RECT rect;
-            glyphTexture->LockRect(0, &rect, NULL, D3DLOCK_DISCARD);
+            glyphDesc.Texture->LockRect(0, &rect, NULL, D3DLOCK_DISCARD);
             uint8_t* src = m_fontFace->glyph->bitmap.buffer;
             uint8_t* dst = (uint8_t*)rect.pBits;
-            for (uint32_t i = 0; i < height; i++) {
-                for (uint32_t j = 0; j < width; j++) {
+            for (uint32_t i = 0; i < glyphDesc.Height; i++) {
+                for (uint32_t j = 0; j < glyphDesc.Width; j++) {
                     dst[4*j] = src[j];
                     dst[4*j + 1] = src[j];
                     dst[4*j + 2] = src[j];
                     dst[4*j + 3] = src[j];
                 }
                 dst += rect.Pitch;
-                src += width;
+                src += glyphDesc.Width;
             }
-            glyphTexture->UnlockRect(0);
-            return glyphTexture;
+            glyphDesc.Texture->UnlockRect(0);
         }
+        return true;
     }
-    return nullptr;
+    return false;
 }
 
 void Text::processString(const char* text) {
     while (*text) {
+        GlyphDesc glyphDesc;
+        if (!getGlyphDesc(*text, glyphDesc)) {
+            continue;
+        };
+        m_curLetter.m_letter = *text;
+        // Process special symbols
         switch (*text) {
         case '\n':
             {
-                m_curFontDesc.Position.y += (float)m_curFontDesc.Size / m_parent->GetWidth();
-                m_curFontDesc.Position.x = 0;
-                m_textData.Text.push_back(pair<char, shared_ptr<Sprite>>(*text, nullptr));
+                // Store symbol
+                m_curLine.m_letters.push_back(m_curLetter);
+                // Compelte line
+                m_text.push_back(std::move(m_curLine));
+                m_curLetter.m_offsetX = 0;
+                m_curLetter.m_letter = 0;
                 ++text;
                 continue;
             }
             break;
         case ' ':
             {
-                m_curFontDesc.Position.x += (float)m_curFontDesc.Size / (2 * m_parent->GetWidth());
-                m_textData.Text.push_back(pair<char, shared_ptr<Sprite>>(*text, nullptr));
+                // Store symbol
+                m_curLetter.m_letter = *text;
+                m_curLine.m_letters.push_back(m_curLetter);
+                // Complete line
+                m_curLetter.m_offsetX += glyphDesc.Advance;
                 ++text;
                 continue;
             }
             break;
         }
 
-        const GlyphDesc* glyphDesc = getGlyphDesc(*text);
-        if (glyphDesc) {
-            float	 width_n = (float)glyphDesc->Width / m_parent->GetWidth();;
-            float	 height_n = (float)glyphDesc->Height / m_parent->GetHeight();
-            // Render glyph texture to font texture
-            Rect texRect;
-            texRect.Left = 0;
-            texRect.Right = 1.0f;
-            texRect.Top = 0;
-            texRect.Bottom = 1.0f;
-            shared_ptr<Sprite> glyph = std::make_shared<Sprite>(m_renderContext);
-            glyph->SetSize(width_n, height_n);
-            glyph->SetTextureCoords(texRect);
-            glyph->SetTexture(glyphDesc->Texture);
-            glyph->SetPosition(m_curFontDesc.Position.x, m_curFontDesc.Position.y - (float)m_fontFace->glyph->bitmap_top / m_parent->GetHeight());
-            m_curFontDesc.Position.x += width_n + (float)m_fontFace->glyph->bitmap_left / m_parent->GetWidth();
-            m_textData.Text.push_back(pair<char, shared_ptr<Sprite>>(*text, std::move(glyph)));
-        }
+        // Render glyph texture to font texture
+        Letter l = m_curLetter;
+        l.m_sprite = std::make_shared<Sprite>(m_renderContext);
+        Rect texRect;
+        texRect.Left = 0;
+        texRect.Right = 1.0f;
+        texRect.Top = 0;
+        texRect.Bottom = 1.0f;
+        l.m_sprite->SetSize(glyphDesc.Width, glyphDesc.Height);
+        l.m_sprite->SetTextureCoords(texRect);
+        l.m_sprite->SetTexture(glyphDesc.Texture);
+        l.m_sprite->SetPosition(m_curLetter.m_offsetX + glyphDesc.Left, m_curLine.m_offsetY - glyphDesc.Top);
+        l.m_sprite->SetColor(l.m_color.x, l.m_color.y, l.m_color.z);
+        m_curLetter.m_offsetX += glyphDesc.Advance;
+        m_curLine.m_letters.push_back(l);
         text++;
-        if (m_prerenderedText) m_prerenderedText = NULL; // prerendered data is invalid so we clear it
     }
 }
 
@@ -194,5 +212,17 @@ void Text::prerenderText() {
     ////m_renderContext->Device->SetViewport(&prevViewPort);
     //m_renderContext->SetRenderTarget(m_renderContext->DefaultRT);
     //m_textData.PrerenderedText = tex;
-    m_prerenderIsDirty = false;
+}
+
+void Text::adjustText() {
+    uint32_t curLineHeight = 0;
+    for (Line& line : m_text) {
+        uint32_t lineHeight = 0;
+        for (const Letter& letter : line.m_letters) {
+            if (letter.GetSize() > lineHeight) lineHeight = letter.GetSize();
+        }
+        curLineHeight += lineHeight + m_lineInterval;
+        line.m_offsetY = curLineHeight;
+    }
+    m_textAdjusted = true;
 }
