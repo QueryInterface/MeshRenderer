@@ -54,6 +54,8 @@ private:
     Desc                                    m_desc;
     RenderContext*							m_renderContext;
     bool									m_visible;
+    uint32_t                                m_adjustedForWidth;
+    uint32_t                                m_adjustedForHeight;
 
     CComPtr<IDirect3DTexture9>				m_texture;
     CComPtr<IDirect3DVertexDeclaration9>	m_vertexDeclaration;
@@ -71,8 +73,7 @@ private:
 
     ID3DXBuffer* compileShader(const std::string& shaderSource, const std::string& entryPoint, const std::string& profile, ID3DXConstantTable** outConstantTable = NULL) const;
     void copy(const Sprite& s);
-    void adjustSize();
-    void adjustPosition();
+    void adjustDimesions();
 };
 
 inline uint32_t Sprite::GetWidth() const {

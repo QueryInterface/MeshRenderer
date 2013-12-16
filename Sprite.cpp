@@ -45,21 +45,33 @@ static const std::string g_pixelShaderSource =
 Sprite::Sprite(RenderContext* renderContext)
     : m_renderContext(renderContext)
     , m_color(1.0f, 1.0f, 1.0f, 1.0f)
-    , m_visible(true) {
+    , m_visible(true)
+    , m_adjustedForWidth(0)
+    , m_adjustedForHeight(0) {
     if (!m_renderContext) {
         throw std::runtime_error("Sprite render context is NULL");
     }
+    // Default desc
+    m_desc.PosX = 0;
+    m_desc.PosY = 0;
+    m_desc.Width = 0;
+    m_desc.Height = 0;
+    m_desc.TexCoords.Left = 0.0f;
+    m_desc.TexCoords.Top = 0.0f;
+    m_desc.TexCoords.Bottom = 1.0f;
+    m_desc.TexCoords.Right = 1.0f;
+    // Create vertex data
     memset(&m_vertices, 0, sizeof(m_vertices)); 
     m_vertices[0].Z = m_vertices[1].Z = m_vertices[2].Z = m_vertices[3].Z = 0.5;
     m_vertices[0].W = m_vertices[1].W = m_vertices[2].W = m_vertices[3].W= 1.0;
-    m_vertices[0].U = 0.0f;
-    m_vertices[0].V = 0.0f;
-    m_vertices[1].U = 1.0f;
-    m_vertices[1].V = 0.0f;
-    m_vertices[2].U = 0.0f;
-    m_vertices[2].V = 1.0f;
-    m_vertices[3].U = 1.0f;
-    m_vertices[3].V = 1.0f;
+    m_vertices[0].U = m_desc.TexCoords.Left;
+    m_vertices[0].V = m_desc.TexCoords.Top;
+    m_vertices[1].U = m_desc.TexCoords.Right;
+    m_vertices[1].V = m_desc.TexCoords.Top;
+    m_vertices[2].U = m_desc.TexCoords.Left;
+    m_vertices[2].V = m_desc.TexCoords.Bottom;
+    m_vertices[3].U = m_desc.TexCoords.Right;
+    m_vertices[3].V = m_desc.TexCoords.Bottom;
 
     m_vertices[0].X = 0.0f;
     m_vertices[0].Y = 0.0f;
@@ -110,13 +122,11 @@ void Sprite::SetTexture(const CComPtr<IDirect3DTexture9>& texture) {
 void Sprite::SetPosition(int32_t x, int32_t y) {
     m_desc.PosX = x;
     m_desc.PosY = y;
-    adjustPosition();
 }
 
 void Sprite::SetSize(uint32_t width, uint32_t height) {
     m_desc.Width = width;
     m_desc.Height = height;
-    adjustSize();
 }
 
 void Sprite::SetColor(float r, float g, float b) {
@@ -148,6 +158,7 @@ void Sprite::SetTextureCoords(Rect coords) {
 
 void Sprite::Render() {
     if (!m_visible) return;
+    adjustDimesions();
     CComPtr<IDirect3DDevice9>& device = m_renderContext->GetDevice();
     device->BeginScene();
     m_vsConstantTable->SetMatrix(device, "g_matrix", &m_resultMatrix);
@@ -181,22 +192,26 @@ ID3DXBuffer* Sprite::compileShader(const std::string& shaderSource, const std::s
     return binaryShader;
 }
 
-void Sprite::adjustSize() {
+void Sprite::adjustDimesions() {
     uint32_t rtWidth = m_renderContext->GetCurrentRT().GetWidth();
     uint32_t rtHeight = m_renderContext->GetCurrentRT().GetHeight();
+    if (rtWidth == m_adjustedForWidth && rtHeight == m_adjustedForHeight) {
+        // Already adjusted
+        return;
+    }
+    // Adjust size
     float w = 2.0f * (float)m_desc.Width / rtWidth;
     float h = 2.0f * (float)m_desc.Height / rtHeight;
     D3DXMatrixScaling(&m_scaleMatrix, w, h, 1.0f);
     D3DXMatrixMultiply(&m_resultMatrix, &m_scaleMatrix, &m_translateMatrix);
     CHECK(m_vsConstantTable->SetMatrix(m_renderContext->GetDevice(), "g_matrix", &m_resultMatrix), "Failed to set g_matrix variable in VS shader");
-}
-
-void Sprite::adjustPosition() {
-    uint32_t rtWidth = m_renderContext->GetCurrentRT().GetWidth();
-    uint32_t rtHeight = m_renderContext->GetCurrentRT().GetHeight();
+    // Adjust position
     float x_shift = -1.0f + 2.0f * (float)m_desc.PosX / rtWidth;
     float y_shift = 1.0f - 2.0f * (float)m_desc.PosY / rtHeight;
     D3DXMatrixTranslation(&m_translateMatrix, x_shift, y_shift, 0.0f);
     D3DXMatrixMultiply(&m_resultMatrix, &m_scaleMatrix, &m_translateMatrix);
     CHECK(m_vsConstantTable->SetMatrix(m_renderContext->GetDevice(), "g_matrix", &m_resultMatrix), "Failed to set g_matrix variable in VS shader");
+    // Store width and height for which adjustment was perform
+    m_adjustedForWidth = rtWidth;
+    m_adjustedForHeight = rtHeight;
 }

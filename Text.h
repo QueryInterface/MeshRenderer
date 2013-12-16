@@ -13,6 +13,8 @@ class Letter {
 public:
     char                    GetLetter() const;
     uint32_t                GetSize() const;
+    uint32_t                GetWidth() const;
+    uint32_t                GetHeight() const;
     uint32_t                GetOffsetX() const;
     const Vector3<float>&   GetColor() const;
 private:
@@ -21,6 +23,8 @@ private:
 
     char                    m_letter;
     uint32_t                m_size;
+    uint32_t                m_width;
+    uint32_t                m_height;
     uint32_t                m_offsetX;
     Vector3<float>          m_color;
     shared_ptr<Sprite>      m_sprite;
@@ -53,7 +57,7 @@ public:
     struct set_pos;
     struct set_color;
 public:
-    Text(RenderContext* renderContext, std::string& fontPath, float fontSize, IRenderable* parent);
+    Text(RenderContext* renderContext, std::string& fontPath);
     ~Text();
     virtual void SetPosition(uint32_t x, uint32_t y);
     virtual void SetLineInterval(uint32_t interval);
@@ -107,13 +111,13 @@ private:
     RenderContext*      m_renderContext;
     FT_Face			    m_fontFace;
     Letter              m_curLetter;
-    Line                m_curLine;
-    Vector2<int32_t>    m_textPosition;
+    Line*               m_curLine;
     uint32_t            m_lineInterval;
     list<Line>          m_text;
     bool                m_textAdjusted;
 
-    Rect                m_boundingRect;
+    uint32_t            m_boundWidth;
+    uint32_t            m_boundHeight;
     Sprite              m_prerenderedText;
     bool                m_prerendered;
 
@@ -130,6 +134,14 @@ inline char Letter::GetLetter() const {
 
 inline uint32_t Letter::GetSize() const {
     return m_size;
+}
+
+inline uint32_t Letter::GetWidth() const {
+    return m_width;
+}
+
+inline uint32_t Letter::GetHeight() const {
+    return m_height;
 }
 
 inline uint32_t Letter::GetOffsetX() const {
@@ -155,8 +167,7 @@ inline Line::LetterIterator Line::End() const {
 
 /// Text
 inline void Text::SetPosition(uint32_t x, uint32_t y) {
-    m_textPosition.x = x;
-    m_textPosition.y = y;
+    m_prerenderedText.SetPosition(x, y);
 }
 
 inline uint32_t Text::GetWidth() const {

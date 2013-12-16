@@ -21,10 +21,12 @@ public:
     virtual uint32_t GetHeight() const;
     virtual int32_t GetX() const;
     virtual int32_t GetY() const;
+    virtual CComPtr<IDirect3DTexture9> GetTexture();
 private:
     friend class RenderContext;
     uint32_t                    m_width;
     uint32_t                    m_height;
+    CComPtr<IDirect3DTexture9>  m_texture;
     CComPtr<IDirect3DSurface9>  m_surface;
     RenderContext*              m_renderContext;
 
@@ -80,6 +82,7 @@ private:
 	static LRESULT WINAPI msgProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 };
 
+/// RenderTarget
 inline uint32_t RenderTarget::GetWidth() const {
     return m_width;
 }
@@ -96,6 +99,11 @@ inline int32_t RenderTarget::GetY() const {
     return 0;
 }
 
+inline CComPtr<IDirect3DTexture9> RenderTarget::GetTexture() {
+    return m_texture;
+}
+
+/// RenderContext
 inline HWND RenderContext::GetWindow() const {
     return m_window;
 }

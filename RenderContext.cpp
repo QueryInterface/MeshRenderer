@@ -6,9 +6,8 @@ RenderTarget::RenderTarget(RenderContext* renderContext, uint32_t width, uint32_
     : m_width(width)
     , m_height(height)
     , m_renderContext(renderContext) {
-    CComPtr<IDirect3DTexture9> texture;
-    CHECK(m_renderContext->GetDevice()->CreateTexture(width, height, 1, D3DUSAGE_RENDERTARGET, format, D3DPOOL_DEFAULT, &texture, NULL), "Failed to create render target");
-	CHECK(texture->GetSurfaceLevel(0, &m_surface), "Failed to get font surface level");
+    CHECK(m_renderContext->GetDevice()->CreateTexture(width, height, 1, D3DUSAGE_RENDERTARGET, format, D3DPOOL_DEFAULT, &m_texture, NULL), "Failed to create render target");
+	CHECK(m_texture->GetSurfaceLevel(0, &m_surface), "Failed to get font surface level");
 }
 
 RenderTarget::RenderTarget(CComPtr<IDirect3DSurface9> surface) {

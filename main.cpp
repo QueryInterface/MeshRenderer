@@ -10,7 +10,7 @@
 int main() {
     try {
         std::string mediaPath = UTILS::GetMediaFolder();
-        std::string fontPath = mediaPath + "Fonts/Calibri.ttf";
+        std::string fontPath = mediaPath + "Fonts/courier.ttf";
 
         RenderContextSetup setup;
         setup.Width = 640;
@@ -18,7 +18,7 @@ int main() {
         RenderContext renderContext(setup);
         //LayoutManager layout(&renderContext);
 
-        //Text text(&renderContext, fontPath, &layout);
+        // Sprite setup
         Sprite sprite0(&renderContext);
         Sprite sprite1(&renderContext);
         Sprite sprite2(&renderContext);
@@ -39,8 +39,9 @@ int main() {
         sprite2.SetTexture(mediaPath + "Textures/Smile.png");
         sprite3.SetTexture(mediaPath + "Textures/Smile.png");
         //Console console(&renderContext);
-
-        //text << Text::set_size(48) << Text::set_pos(0.0, 0.5) << "Font rendering\nis guano!";
+        // Text setup
+        Text text(&renderContext, fontPath);
+        text << Text::set_size(32) << "Font rendering is guano!";
         float opacity = 1.0f;
         bool direction = true;
         while (renderContext.ProcessMessage()) {
@@ -70,7 +71,7 @@ int main() {
             sprite3.Render();
             
             //console.Render();
-            //text.Render();
+            text.Render();
             renderContext.Present();
         }
         return 0;

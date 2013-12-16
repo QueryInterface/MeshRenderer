@@ -10,14 +10,15 @@ Line::Line(Text* parent) : m_parent(parent) {
 }
 
 /// Text
-Text::Text(RenderContext* renderContext, std::string& fontPath, float fontSize, IRenderable* parent) 
+Text::Text(RenderContext* renderContext, std::string& fontPath) 
     : m_renderContext(renderContext)
     , m_prerenderedText(renderContext)
     , m_prerendered(true)
     , m_textAdjusted(false)
-    , m_textPosition(0, 0)
     , m_lineInterval(0)
-    , m_curLine(this) {
+    , m_curLine(NULL)
+    , m_boundWidth(0) 
+    , m_boundHeight(0) {
     FT_Library fontLibrary;
     if(FT_Init_FreeType(&fontLibrary)) {
         throw std::runtime_error("Failed to create FreeType object");
@@ -26,11 +27,18 @@ Text::Text(RenderContext* renderContext, std::string& fontPath, float fontSize, 
         throw std::runtime_error("Failed to create FreeType font face");
     }
     // Set default values for font rendering
+    m_prerenderedText.SetPosition(0, 0);
     m_curLetter.m_color = Vector3<float>(1.0f, 1.0f, 1.0f);
     m_curLetter.m_letter = 0;
     m_curLetter.m_offsetX = 0;
     m_curLetter.m_size = 12;
-    m_curLine.m_offsetY = 0;
+    m_curLetter.m_height = 0;
+    m_curLetter.m_width = 0;
+
+    Line line(this);
+    m_text.push_back(line);
+    m_curLine = &m_text.back();
+    m_curLine->m_offsetY = 0;
     FT_Set_Pixel_Sizes(m_fontFace, 0, m_curLetter.m_size);
 }
 
@@ -51,9 +59,9 @@ void Text::Render() {
     if (!m_textAdjusted) {
         adjustText();
     }
-    if (!m_prerendered) {
+    //if (!m_prerendered) {
         prerenderText();
-    }
+    //}
     m_prerenderedText.Render();
 }
 
@@ -124,14 +132,18 @@ void Text::processString(const char* text) {
             continue;
         };
         m_curLetter.m_letter = *text;
+        m_curLetter.m_width = glyphDesc.Width;
+        m_curLetter.m_height = glyphDesc.Height;
         // Process special symbols
         switch (*text) {
         case '\n':
             {
                 // Store symbol
-                m_curLine.m_letters.push_back(m_curLetter);
-                // Compelte line
-                m_text.push_back(std::move(m_curLine));
+                m_curLine->m_letters.push_back(m_curLetter);
+                // Create new line
+                Line line(this);
+                m_text.push_back(line);
+                m_curLine = &m_text.back();
                 m_curLetter.m_offsetX = 0;
                 m_curLetter.m_letter = 0;
                 ++text;
@@ -142,7 +154,7 @@ void Text::processString(const char* text) {
             {
                 // Store symbol
                 m_curLetter.m_letter = *text;
-                m_curLine.m_letters.push_back(m_curLetter);
+                m_curLine->m_letters.push_back(m_curLetter);
                 // Complete line
                 m_curLetter.m_offsetX += glyphDesc.Advance;
                 ++text;
@@ -162,67 +174,55 @@ void Text::processString(const char* text) {
         l.m_sprite->SetSize(glyphDesc.Width, glyphDesc.Height);
         l.m_sprite->SetTextureCoords(texRect);
         l.m_sprite->SetTexture(glyphDesc.Texture);
-        l.m_sprite->SetPosition(m_curLetter.m_offsetX + glyphDesc.Left, m_curLine.m_offsetY - glyphDesc.Top);
+        l.m_sprite->SetPosition(m_curLetter.m_offsetX + glyphDesc.Left, m_curLine->m_offsetY - glyphDesc.Top);
         l.m_sprite->SetColor(l.m_color.x, l.m_color.y, l.m_color.z);
         m_curLetter.m_offsetX += glyphDesc.Advance;
-        m_curLine.m_letters.push_back(l);
+        m_curLine->m_letters.push_back(l);
         text++;
     }
 }
 
 void Text::prerenderText() {
-    ////if (m_textData.PrerenderedText) return;
+    //if (m_prerendered) return;
 
-    //m_textData.BoundingRect.Left = m_textData.BoundingRect.Top = 1.0f;
-    //m_textData.BoundingRect.Right = m_textData.BoundingRect.Bottom = 0.0f;
-    //for (auto letter : m_textData.Text) {
-    //    shared_ptr<Sprite>& sprite = letter.second;
-    //    if (sprite->GetX() < m_textData.BoundingRect.Left) m_textData.BoundingRect.Left = sprite->GetX();
-    //    if (sprite->GetY() < m_textData.BoundingRect.Top) m_textData.BoundingRect.Top = sprite->GetY();
-    //    if (sprite->GetX() + sprite->GetWidth()> m_textData.BoundingRect.Right) m_textData.BoundingRect.Right = sprite->GetX() + sprite->GetWidth();
-    //    if (sprite->GetY() + sprite->GetHeight() > m_textData.BoundingRect.Bottom) m_textData.BoundingRect.Bottom = sprite->GetY() + sprite->GetHeight(); 
-    //};
-    //// Create a new copy of glyphs in space of bounding box
-    //float width_n = (m_textData.BoundingRect.Right - m_textData.BoundingRect.Left);
-    //float height_n = (m_textData.BoundingRect.Bottom - m_textData.BoundingRect.Top);
-    //uint32_t width = width_n * m_parent->GetWidth();
-    //uint32_t height = height_n * m_parent->GetHeight();
-    //std::list<Sprite> glyphsCopy = m_textData.Glyphs;
-    //std::for_each(glyphsCopy.begin(), glyphsCopy.end(), [&](Sprite& sprite) {
-    //    sprite->SetPosition((sprite->GetPosX() - m_textData.BoundingRect.Left) / width_n, (sprite->GetPosY() - m_textData.BoundingRect.Top) / height_n);
-    //    sprite->SetSize(sprite->GetWidth() / width_n, sprite->GetHeight() / height_n);
-    //});
-    //CComPtr<IDirect3DTexture9> tex = m_renderContext->CreateRenderTarget(width, height, D3DFMT_A8R8G8B8);
-    //m_renderContext->SetRenderTarget(tex);
-    //m_renderContext->Clear();
-    //// Render sprites
-    ////D3DVIEWPORT9 prevViewPort;
-    ////D3DVIEWPORT9 newViewPort;
-    ////newViewPort.X = 0;
-    ////newViewPort.Y = 0;
-    ////newViewPort.Width = width;
-    ////newViewPort.Height = height;
-    ////newViewPort.MinZ = 0.0f;
-    ////newViewPort.MaxZ = 1.0f;
-    ////m_renderContext->Device->GetViewport(&prevViewPort);
-    ////m_renderContext->Device->SetViewport(&newViewPort);
-    //std::for_each(glyphsCopy.begin(), glyphsCopy.end(), [&](Sprite sprite) {
-    //    sprite->Render();
-    //});
-    ////m_renderContext->Device->SetViewport(&prevViewPort);
-    //m_renderContext->SetRenderTarget(m_renderContext->DefaultRT);
-    //m_textData.PrerenderedText = tex;
+    RenderTarget rt = m_renderContext->CreateRenderTarget(m_boundWidth, m_boundHeight, D3DFMT_A8R8G8B8);
+    rt.MakeCurrent();
+    m_renderContext->Clear();
+    // Render sprites
+    for (Line& line : m_text) {
+        for (const Letter& letter : line.m_letters) {
+            if (letter.m_sprite) {
+                letter.m_sprite->Render();
+            }
+        }
+    }
+    m_renderContext->GetDefaultRT().MakeCurrent();
+    m_prerenderedText.SetSize(m_boundWidth, m_boundHeight);
+    m_prerenderedText.SetTexture(rt.GetTexture());
+    m_prerendered = true;
 }
 
 void Text::adjustText() {
+    if (m_textAdjusted) return;
+
+    uint32_t totalLineHeight = 0;
     uint32_t curLineHeight = 0;
+    uint32_t maxLineLength = 0;
     for (Line& line : m_text) {
-        uint32_t lineHeight = 0;
+        curLineHeight = 0;
         for (const Letter& letter : line.m_letters) {
-            if (letter.GetSize() > lineHeight) lineHeight = letter.GetSize();
+            if (letter.GetSize() > curLineHeight) curLineHeight = letter.GetSize();
+            if (letter.GetOffsetX() + letter.GetWidth() > maxLineLength) maxLineLength = letter.GetOffsetX() + letter.GetWidth();
         }
-        curLineHeight += lineHeight + m_lineInterval;
-        line.m_offsetY = curLineHeight;
+        totalLineHeight += curLineHeight + m_lineInterval;
+        line.m_offsetY = totalLineHeight;
+        for (const Letter& letter : line.m_letters) {
+            if (letter.m_sprite) {
+                letter.m_sprite->SetPosition(letter.m_sprite->GetX(), letter.m_sprite->GetY() + totalLineHeight);
+            }
+        }
     }
+    m_boundHeight = totalLineHeight + curLineHeight;
+    m_boundWidth = maxLineLength;
     m_textAdjusted = true;
 }
